@@ -68,9 +68,17 @@ jobs:
             snailjob-server) echo "path=ruoyi-visual/ruoyi-snailjob-server" >> $GITHUB_OUTPUT ;;
           esac
 
-      - name: Install Parent POM
+      - name: Install Common BOMs
         run: |
-          mvn install -N -DskipTests -Dmaven.javadoc.skip=true -Dflatten.skip=false
+          mvn install -pl ruoyi-common/ruoyi-common-alibaba-bom,ruoyi-common/ruoyi-common-bom,ruoyi-api/ruoyi-api-bom -DskipTests -Dmaven.javadoc.skip=true
+
+      - name: Install Common Modules
+        run: |
+          mvn install -pl ruoyi-common -am -DskipTests -Dmaven.javadoc.skip=true
+
+      - name: Install API Modules
+        run: |
+          mvn install -pl ruoyi-api -am -DskipTests -Dmaven.javadoc.skip=true
 
       - name: Build Service
         run: |
