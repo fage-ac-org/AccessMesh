@@ -68,6 +68,10 @@ jobs:
             snailjob-server) echo "path=ruoyi-visual/ruoyi-snailjob-server" >> $GITHUB_OUTPUT ;;
           esac
 
+      - name: Install Parent POM
+        run: |
+          mvn install -N -DskipTests -Dmaven.javadoc.skip=true -Dflatten.skip=false
+
       - name: Build Service
         run: |
           cd ${{ steps.paths.outputs.path }}
