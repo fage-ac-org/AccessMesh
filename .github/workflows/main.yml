@@ -52,30 +52,25 @@ jobs:
         run: |
           echo "tag=$(date +%Y%m%d%H%M%S)" >> $GITHUB_OUTPUT
 
-      - name: Determine Build Path
+      - name: Determine Module Path
         id: paths
         run: |
           SERVICE=${{ github.event.inputs.service }}
           case $SERVICE in
-            gateway) echo "path=ruoyi-gateway" >> $GITHUB_OUTPUT ;;
-            auth) echo "path=ruoyi-auth" >> $GITHUB_OUTPUT ;;
-            system) echo "path=ruoyi-modules/ruoyi-system" >> $GITHUB_OUTPUT ;;
-            resource) echo "path=ruoyi-modules/ruoyi-resource" >> $GITHUB_OUTPUT ;;
-            gen) echo "path=ruoyi-modules/ruoyi-gen" >> $GITHUB_OUTPUT ;;
-            job) echo "path=ruoyi-modules/ruoyi-job" >> $GITHUB_OUTPUT ;;
-            workflow) echo "path=ruoyi-modules/ruoyi-workflow" >> $GITHUB_OUTPUT ;;
-            monitor) echo "path=ruoyi-visual/ruoyi-monitor" >> $GITHUB_OUTPUT ;;
-            snailjob-server) echo "path=ruoyi-visual/ruoyi-snailjob-server" >> $GITHUB_OUTPUT ;;
+            gateway) echo "module=ruoyi-gateway" >> $GITHUB_OUTPUT ;;
+            auth) echo "module=ruoyi-auth" >> $GITHUB_OUTPUT ;;
+            system) echo "module=ruoyi-modules/ruoyi-system" >> $GITHUB_OUTPUT ;;
+            resource) echo "module=ruoyi-modules/ruoyi-resource" >> $GITHUB_OUTPUT ;;
+            gen) echo "module=ruoyi-modules/ruoyi-gen" >> $GITHUB_OUTPUT ;;
+            job) echo "module=ruoyi-modules/ruoyi-job" >> $GITHUB_OUTPUT ;;
+            workflow) echo "module=ruoyi-modules/ruoyi-workflow" >> $GITHUB_OUTPUT ;;
+            monitor) echo "module=ruoyi-visual/ruoyi-monitor" >> $GITHUB_OUTPUT ;;
+            snailjob-server) echo "module=ruoyi-visual/ruoyi-snailjob-server" >> $GITHUB_OUTPUT ;;
           esac
 
-      - name: Install All Dependencies
+      - name: Build All Modules
         run: |
-          mvn install -DskipTests -Dmaven.javadoc.skip=true -Dcheckstyle.skip=true -Dflatten.skip=false
-
-      - name: Build Service
-        run: |
-          cd ${{ steps.paths.outputs.path }}
-          mvn clean package -DskipTests -Dmaven.javadoc.skip=true
+          mvn clean install -DskipTests -Dmaven.javadoc.skip=true -Dcheckstyle.skip=true
 
       - name: Login to Docker Hub
         uses: docker/login-action@v3
@@ -84,13 +79,15 @@ jobs:
           password: ${{ secrets.DOCKER_HUB_PASSWORD }}
 
       - name: Build and Push Image
+        id: docker
         run: |
           SERVICE=${{ github.event.inputs.service }}
+          MODULE=${{ steps.paths.outputs.module }}
           TAG=${{ steps.time.outputs.tag }}
           IMAGE=docker.io/${{ secrets.DOCKER_HUB_USERNAME }}/ruoyi-$SERVICE
 
           echo "Building $IMAGE:$TAG"
-          cd ${{ steps.paths.outputs.path }}
+          cd $MODULE
           docker build -t $IMAGE:$TAG .
           docker push $IMAGE:$TAG
 
@@ -99,7 +96,15 @@ jobs:
             docker push $IMAGE:latest
           fi
 
-          echo "Built: $IMAGE:$TAG"
+          echo "image=$IMAGE:$TAG" >> $GITHUB_OUTPUT
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ github.event.inputs.service }}-image
+          path: |
+            ${{ steps.paths.outputs.module }}/target/*.jar
+          retention-days: 1
 
   deploy-k8s:
     name: Deploy to K8s
