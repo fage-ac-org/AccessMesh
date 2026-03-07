@@ -1,14 +1,22 @@
 package org.dromara.permission.service.impl;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.dromara.common.mybatis.core.page.PageQuery;
+import org.dromara.common.mybatis.core.page.TableDataInfo;
 import org.dromara.common.json.utils.JsonUtils;
 import org.dromara.permission.domain.PcPermissionChangeLog;
+import org.dromara.permission.domain.bo.ChangeLogQueryBo;
+import org.dromara.permission.domain.vo.ChangeLogVo;
 import org.dromara.permission.mapper.PcPermissionChangeLogMapper;
 import org.dromara.permission.service.PermissionChangeLogService;
+import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * 权限变更记录服务实现：写入 permission_change_log，供同步模块及其他模块调用
@@ -42,5 +50,27 @@ public class PermissionChangeLogServiceImpl implements PermissionChangeLogServic
         } catch (Exception e) {
             log.error("writeChangeLog failed, entityType={}, entityId={}, operation={}", entityType, entityId, operation, e);
         }
+    }
+
+    @Override
+    public TableDataInfo<ChangeLogVo> queryPage(ChangeLogQueryBo bo, PageQuery pageQuery) {
+        if (bo == null || bo.getTenantId() == null) {
+            return TableDataInfo.build();
+        }
+        Page<PcPermissionChangeLog> page = pageQuery.build();
+        Page<PcPermissionChangeLog> result = changeLogMapper.selectChangeLogPage(page, bo);
+        List<ChangeLogVo> voList = new ArrayList<>();
+        for (PcPermissionChangeLog record : result.getRecords()) {
+            voList.add(toVo(record));
+        }
+        Page<ChangeLogVo> voPage = new Page<>(result.getCurrent(), result.getSize(), result.getTotal());
+        voPage.setRecords(voList);
+        return TableDataInfo.build(voPage);
+    }
+
+    private ChangeLogVo toVo(PcPermissionChangeLog entity) {
+        ChangeLogVo vo = new ChangeLogVo();
+        BeanUtils.copyProperties(entity, vo);
+        return vo;
     }
 }

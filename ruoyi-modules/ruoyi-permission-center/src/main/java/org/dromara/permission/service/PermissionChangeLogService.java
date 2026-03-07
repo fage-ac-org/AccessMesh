@@ -1,7 +1,12 @@
 package org.dromara.permission.service;
 
+import org.dromara.common.mybatis.core.page.PageQuery;
+import org.dromara.common.mybatis.core.page.TableDataInfo;
+import org.dromara.permission.domain.bo.ChangeLogQueryBo;
+import org.dromara.permission.domain.vo.ChangeLogVo;
+
 /**
- * 权限变更记录服务：写入变更日志，供本模块及后续其他模块调用
+ * 权限变更记录服务：写入变更日志，供本模块及后续其他模块调用；支持分页查询
  *
  * @author RuoYi-Cloud-Plus
  */
@@ -23,4 +28,9 @@ public interface PermissionChangeLogService {
     void writeChangeLog(Long tenantId, Long bizDomainId, String entityType, Long entityId,
                         String operation, Object oldSnapshot, Object newSnapshot,
                         String requestId, String changeSource);
+
+    /**
+     * 分页查询变更记录，支持按用户、角色、业务域、实体类型、时间、requestId 过滤
+     */
+    TableDataInfo<ChangeLogVo> queryPage(ChangeLogQueryBo bo, PageQuery pageQuery);
 }
