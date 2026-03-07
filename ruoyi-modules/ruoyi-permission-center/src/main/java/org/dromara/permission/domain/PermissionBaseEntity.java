@@ -6,7 +6,7 @@ import lombok.Data;
 
 import java.io.Serial;
 import java.io.Serializable;
-import java.util.Date;
+import java.time.LocalDateTime;
 
 /**
  * 权限中心实体基类（租户 + 审计 + 软删除）
@@ -31,7 +31,7 @@ public abstract class PermissionBaseEntity implements Serializable {
 
     /** 创建时间 */
     @TableField(value = "created_at", fill = FieldFill.INSERT)
-    private Date createdAt;
+    private LocalDateTime createdAt;
 
     /** 更新人ID */
     @TableField(value = "updated_by", fill = FieldFill.INSERT_UPDATE)
@@ -39,7 +39,7 @@ public abstract class PermissionBaseEntity implements Serializable {
 
     /** 更新时间 */
     @TableField(value = "updated_at", fill = FieldFill.INSERT_UPDATE)
-    private Date updatedAt;
+    private LocalDateTime updatedAt;
 
     /** 删除人ID */
     @TableField("deleted_by")
@@ -47,7 +47,7 @@ public abstract class PermissionBaseEntity implements Serializable {
 
     /** 软删时间，NULL 表示未删除 */
     @TableField("deleted_at")
-    private Date deletedAt;
+    private LocalDateTime deletedAt;
 
     /** 逻辑删除标识：0=未删除，删除时填本行主键 id */
     @TableField("delete_flag")

@@ -1,5 +1,6 @@
 package org.dromara.permission.mapper;
 
+import org.apache.ibatis.annotations.Mapper;
 import org.dromara.common.mybatis.core.mapper.BaseMapperPlus;
 import org.dromara.permission.domain.PcDomainRelationConfig;
 
@@ -8,5 +9,6 @@ import org.dromara.permission.domain.PcDomainRelationConfig;
  *
  * @author RuoYi-Cloud-Plus
  */
+@Mapper
 public interface PcDomainRelationConfigMapper extends BaseMapperPlus<PcDomainRelationConfig, PcDomainRelationConfig> {
 }

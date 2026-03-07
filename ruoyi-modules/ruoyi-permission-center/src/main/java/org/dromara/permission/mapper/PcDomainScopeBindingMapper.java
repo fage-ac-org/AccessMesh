@@ -1,5 +1,6 @@
 package org.dromara.permission.mapper;
 
+import org.apache.ibatis.annotations.Mapper;
 import org.dromara.common.mybatis.core.mapper.BaseMapperPlus;
 import org.dromara.permission.domain.PcDomainScopeBinding;
 
@@ -8,5 +9,6 @@ import org.dromara.permission.domain.PcDomainScopeBinding;
  *
  * @author RuoYi-Cloud-Plus
  */
+@Mapper
 public interface PcDomainScopeBindingMapper extends BaseMapperPlus<PcDomainScopeBinding, PcDomainScopeBinding> {
 }

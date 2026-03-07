@@ -4,7 +4,7 @@ import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 
-import java.util.Date;
+import java.time.LocalDateTime;
 
 /**
  * 权限变更记录表 permission_change_log
@@ -60,5 +60,5 @@ public class PcPermissionChangeLog {
     private Long createdBy;
 
     /** 变更时间 */
-    private Date createdAt;
+    private LocalDateTime createdAt;
 }

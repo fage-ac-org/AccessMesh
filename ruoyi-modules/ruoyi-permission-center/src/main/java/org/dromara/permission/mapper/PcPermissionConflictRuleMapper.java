@@ -1,5 +1,6 @@
 package org.dromara.permission.mapper;
 
+import org.apache.ibatis.annotations.Mapper;
 import org.dromara.common.mybatis.core.mapper.BaseMapperPlus;
 import org.dromara.permission.domain.PcPermissionConflictRule;
 
@@ -8,5 +9,6 @@ import org.dromara.permission.domain.PcPermissionConflictRule;
  *
  * @author RuoYi-Cloud-Plus
  */
+@Mapper
 public interface PcPermissionConflictRuleMapper extends BaseMapperPlus<PcPermissionConflictRule, PcPermissionConflictRule> {
 }

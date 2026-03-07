@@ -6,7 +6,7 @@ import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 
-import java.util.Date;
+import java.time.LocalDateTime;
 
 /**
  * 用户-角色关联表 user_role
@@ -32,8 +32,8 @@ public class PcUserRole extends PermissionBaseEntity {
     private Long abstractRoleId;
 
     /** 生效开始时间，NULL 不限制 */
-    private Date validFrom;
+    private LocalDateTime validFrom;
 
     /** 生效结束时间，NULL 不限制 */
-    private Date validTo;
+    private LocalDateTime validTo;
 }

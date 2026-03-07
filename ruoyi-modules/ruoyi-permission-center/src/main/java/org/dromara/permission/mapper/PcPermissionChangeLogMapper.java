@@ -1,6 +1,7 @@
 package org.dromara.permission.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import org.apache.ibatis.annotations.Mapper;
 import org.dromara.permission.domain.PcPermissionChangeLog;
 
 /**
@@ -8,5 +9,6 @@ import org.dromara.permission.domain.PcPermissionChangeLog;
  *
  * @author RuoYi-Cloud-Plus
  */
+@Mapper
 public interface PcPermissionChangeLogMapper extends BaseMapper<PcPermissionChangeLog> {
 }
