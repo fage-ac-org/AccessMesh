@@ -20,11 +20,12 @@ CREATE TABLE system_config (
     deleted_by        BIGINT,
     created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
-    deleted_at        TIMESTAMPTZ
+    deleted_at        TIMESTAMPTZ,
+    delete_flag       BIGINT NOT NULL DEFAULT 0
 );
 
-CREATE UNIQUE INDEX uk_system_config_domain ON system_config (tenant_id, biz_domain_id, config_key, type_value) WHERE biz_domain_id IS NOT NULL AND deleted_at IS NULL;
-CREATE UNIQUE INDEX uk_system_config_global ON system_config (tenant_id, config_key, type_value) WHERE biz_domain_id IS NULL AND deleted_at IS NULL;
+CREATE UNIQUE INDEX uk_system_config_domain ON system_config (tenant_id, biz_domain_id, config_key, type_value) WHERE biz_domain_id IS NOT NULL AND delete_flag = 0;
+CREATE UNIQUE INDEX uk_system_config_global ON system_config (tenant_id, config_key, type_value) WHERE biz_domain_id IS NULL AND delete_flag = 0;
 
 COMMENT ON TABLE system_config IS '类型/枚举 KV 配置：config_key 如 user_type/role_type/resource_type，type_value 为枚举整型';
 COMMENT ON COLUMN system_config.id IS '主键';
@@ -41,6 +42,7 @@ COMMENT ON COLUMN system_config.deleted_by IS '删除人ID';
 COMMENT ON COLUMN system_config.created_at IS '创建时间';
 COMMENT ON COLUMN system_config.updated_at IS '更新时间';
 COMMENT ON COLUMN system_config.deleted_at IS '软删时间';
+COMMENT ON COLUMN system_config.delete_flag IS '逻辑删除：0=未删除，删除时填本行id';
 
 -- -----------------------------------------------------------------------------
 -- 1. 业务域表
@@ -56,10 +58,11 @@ CREATE TABLE biz_domain (
     deleted_by  BIGINT,
     created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
-    deleted_at  TIMESTAMPTZ
+    deleted_at  TIMESTAMPTZ,
+    delete_flag BIGINT NOT NULL DEFAULT 0
 );
 
-CREATE UNIQUE INDEX uk_biz_domain ON biz_domain (tenant_id, code) WHERE deleted_at IS NULL;
+CREATE UNIQUE INDEX uk_biz_domain ON biz_domain (tenant_id, code) WHERE delete_flag = 0;
 
 COMMENT ON TABLE biz_domain IS '业务域，对权限对象分类';
 COMMENT ON COLUMN biz_domain.id IS '主键';
@@ -73,6 +76,7 @@ COMMENT ON COLUMN biz_domain.deleted_by IS '删除人ID';
 COMMENT ON COLUMN biz_domain.created_at IS '创建时间';
 COMMENT ON COLUMN biz_domain.updated_at IS '更新时间';
 COMMENT ON COLUMN biz_domain.deleted_at IS '软删时间';
+COMMENT ON COLUMN biz_domain.delete_flag IS '逻辑删除：0=未删除，删除时填本行id';
 
 -- -----------------------------------------------------------------------------
 -- 2. 抽象用户表（不含 biz_domain_id，通过角色关联域）
@@ -89,11 +93,12 @@ CREATE TABLE abstract_user (
     deleted_by  BIGINT,
     created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
-    deleted_at  TIMESTAMPTZ
+    deleted_at  TIMESTAMPTZ,
+    delete_flag BIGINT NOT NULL DEFAULT 0
 );
 
-CREATE UNIQUE INDEX uk_abstract_user ON abstract_user (tenant_id, user_type, external_id) WHERE deleted_at IS NULL;
-CREATE INDEX idx_abstract_user_tenant ON abstract_user (tenant_id) WHERE deleted_at IS NULL;
+CREATE UNIQUE INDEX uk_abstract_user ON abstract_user (tenant_id, user_type, external_id) WHERE delete_flag = 0;
+CREATE INDEX idx_abstract_user_tenant ON abstract_user (tenant_id) WHERE delete_flag = 0;
 
 COMMENT ON TABLE abstract_user IS '抽象用户，user_type 来自 system_config';
 COMMENT ON COLUMN abstract_user.id IS '主键';
@@ -108,6 +113,7 @@ COMMENT ON COLUMN abstract_user.deleted_by IS '删除人ID';
 COMMENT ON COLUMN abstract_user.created_at IS '创建时间';
 COMMENT ON COLUMN abstract_user.updated_at IS '更新时间';
 COMMENT ON COLUMN abstract_user.deleted_at IS '软删时间';
+COMMENT ON COLUMN abstract_user.delete_flag IS '逻辑删除：0=未删除，删除时填本行id';
 
 -- -----------------------------------------------------------------------------
 -- 3. 抽象角色表（支持树形，biz_domain_id 可空表示全局角色）
@@ -128,12 +134,13 @@ CREATE TABLE abstract_role (
     deleted_by    BIGINT,
     created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
-    deleted_at    TIMESTAMPTZ
+    deleted_at    TIMESTAMPTZ,
+    delete_flag   BIGINT NOT NULL DEFAULT 0
 );
 
-CREATE INDEX idx_abstract_role_tenant_domain ON abstract_role (tenant_id, biz_domain_id) WHERE deleted_at IS NULL;
-CREATE INDEX idx_abstract_role_parent ON abstract_role (parent_id) WHERE deleted_at IS NULL;
-CREATE INDEX idx_abstract_role_path ON abstract_role (path) WHERE deleted_at IS NULL AND path IS NOT NULL;
+CREATE INDEX idx_abstract_role_tenant_domain ON abstract_role (tenant_id, biz_domain_id) WHERE delete_flag = 0;
+CREATE INDEX idx_abstract_role_parent ON abstract_role (parent_id) WHERE delete_flag = 0;
+CREATE INDEX idx_abstract_role_path ON abstract_role (path) WHERE delete_flag = 0 AND path IS NOT NULL;
 
 COMMENT ON TABLE abstract_role IS '抽象角色，树形；biz_domain_id 为 NULL 表示全局角色';
 COMMENT ON COLUMN abstract_role.id IS '主键';
@@ -152,6 +159,7 @@ COMMENT ON COLUMN abstract_role.deleted_by IS '删除人ID';
 COMMENT ON COLUMN abstract_role.created_at IS '创建时间';
 COMMENT ON COLUMN abstract_role.updated_at IS '更新时间';
 COMMENT ON COLUMN abstract_role.deleted_at IS '软删时间';
+COMMENT ON COLUMN abstract_role.delete_flag IS '逻辑删除：0=未删除，删除时填本行id';
 
 -- -----------------------------------------------------------------------------
 -- 4. 操作权限表（binary_bit + inherit_mask，biz_domain_id 可空表示全局操作）
@@ -169,11 +177,12 @@ CREATE TABLE operation_permission (
     deleted_by    BIGINT,
     created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
-    deleted_at    TIMESTAMPTZ
+    deleted_at    TIMESTAMPTZ,
+    delete_flag   BIGINT NOT NULL DEFAULT 0
 );
 
-CREATE UNIQUE INDEX uk_operation_permission_domain ON operation_permission (tenant_id, biz_domain_id, code) WHERE biz_domain_id IS NOT NULL AND deleted_at IS NULL;
-CREATE UNIQUE INDEX uk_operation_permission_global ON operation_permission (tenant_id, code) WHERE biz_domain_id IS NULL AND deleted_at IS NULL;
+CREATE UNIQUE INDEX uk_operation_permission_domain ON operation_permission (tenant_id, biz_domain_id, code) WHERE biz_domain_id IS NOT NULL AND delete_flag = 0;
+CREATE UNIQUE INDEX uk_operation_permission_global ON operation_permission (tenant_id, code) WHERE biz_domain_id IS NULL AND delete_flag = 0;
 
 COMMENT ON TABLE operation_permission IS '操作权限，effective = binary_bit | inherit_mask';
 COMMENT ON COLUMN operation_permission.id IS '主键';
@@ -189,6 +198,7 @@ COMMENT ON COLUMN operation_permission.deleted_by IS '删除人ID';
 COMMENT ON COLUMN operation_permission.created_at IS '创建时间';
 COMMENT ON COLUMN operation_permission.updated_at IS '更新时间';
 COMMENT ON COLUMN operation_permission.deleted_at IS '软删时间';
+COMMENT ON COLUMN operation_permission.delete_flag IS '逻辑删除：0=未删除，删除时填本行id';
 
 -- -----------------------------------------------------------------------------
 -- 5. 权限资源实体表（树形，biz_domain_id 可空表示全局资源）
@@ -209,13 +219,14 @@ CREATE TABLE resource_entity (
     deleted_by    BIGINT,
     created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
-    deleted_at    TIMESTAMPTZ
+    deleted_at    TIMESTAMPTZ,
+    delete_flag   BIGINT NOT NULL DEFAULT 0
 );
 
-CREATE UNIQUE INDEX uk_resource_entity_domain ON resource_entity (tenant_id, biz_domain_id, code) WHERE biz_domain_id IS NOT NULL AND deleted_at IS NULL;
-CREATE UNIQUE INDEX uk_resource_entity_global ON resource_entity (tenant_id, code) WHERE biz_domain_id IS NULL AND deleted_at IS NULL;
-CREATE INDEX idx_resource_entity_tenant_domain ON resource_entity (tenant_id, biz_domain_id) WHERE deleted_at IS NULL;
-CREATE INDEX idx_resource_entity_parent ON resource_entity (parent_id) WHERE deleted_at IS NULL;
+CREATE UNIQUE INDEX uk_resource_entity_domain ON resource_entity (tenant_id, biz_domain_id, code) WHERE biz_domain_id IS NOT NULL AND delete_flag = 0;
+CREATE UNIQUE INDEX uk_resource_entity_global ON resource_entity (tenant_id, code) WHERE biz_domain_id IS NULL AND delete_flag = 0;
+CREATE INDEX idx_resource_entity_tenant_domain ON resource_entity (tenant_id, biz_domain_id) WHERE delete_flag = 0;
+CREATE INDEX idx_resource_entity_parent ON resource_entity (parent_id) WHERE delete_flag = 0;
 
 COMMENT ON TABLE resource_entity IS '权限资源实体，树形；resource_type 来自 system_config';
 COMMENT ON COLUMN resource_entity.id IS '主键';
@@ -234,6 +245,7 @@ COMMENT ON COLUMN resource_entity.deleted_by IS '删除人ID';
 COMMENT ON COLUMN resource_entity.created_at IS '创建时间';
 COMMENT ON COLUMN resource_entity.updated_at IS '更新时间';
 COMMENT ON COLUMN resource_entity.deleted_at IS '软删时间';
+COMMENT ON COLUMN resource_entity.delete_flag IS '逻辑删除：0=未删除，删除时填本行id';
 
 -- -----------------------------------------------------------------------------
 -- 6. 权限生效条件表（Java 表达式）
@@ -250,10 +262,11 @@ CREATE TABLE permission_condition (
     deleted_by  BIGINT,
     created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
-    deleted_at  TIMESTAMPTZ
+    deleted_at  TIMESTAMPTZ,
+    delete_flag BIGINT NOT NULL DEFAULT 0
 );
 
-CREATE UNIQUE INDEX uk_permission_condition ON permission_condition (tenant_id, code) WHERE deleted_at IS NULL;
+CREATE UNIQUE INDEX uk_permission_condition ON permission_condition (tenant_id, code) WHERE delete_flag = 0;
 
 COMMENT ON TABLE permission_condition IS '权限生效条件，expression 为 Java 表达式';
 COMMENT ON COLUMN permission_condition.id IS '主键';
@@ -268,6 +281,7 @@ COMMENT ON COLUMN permission_condition.deleted_by IS '删除人ID';
 COMMENT ON COLUMN permission_condition.created_at IS '创建时间';
 COMMENT ON COLUMN permission_condition.updated_at IS '更新时间';
 COMMENT ON COLUMN permission_condition.deleted_at IS '软删时间';
+COMMENT ON COLUMN permission_condition.delete_flag IS '逻辑删除：0=未删除，删除时填本行id';
 
 -- -----------------------------------------------------------------------------
 -- 7. 用户-角色关联表
@@ -284,12 +298,13 @@ CREATE TABLE user_role (
     deleted_by       BIGINT,
     created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
-    deleted_at       TIMESTAMPTZ
+    deleted_at       TIMESTAMPTZ,
+    delete_flag      BIGINT NOT NULL DEFAULT 0
 );
 
-CREATE UNIQUE INDEX uk_user_role ON user_role (tenant_id, abstract_user_id, abstract_role_id) WHERE deleted_at IS NULL;
-CREATE INDEX idx_user_role_user ON user_role (abstract_user_id) WHERE deleted_at IS NULL;
-CREATE INDEX idx_user_role_role ON user_role (abstract_role_id) WHERE deleted_at IS NULL;
+CREATE UNIQUE INDEX uk_user_role ON user_role (tenant_id, abstract_user_id, abstract_role_id) WHERE delete_flag = 0;
+CREATE INDEX idx_user_role_user ON user_role (abstract_user_id) WHERE delete_flag = 0;
+CREATE INDEX idx_user_role_role ON user_role (abstract_role_id) WHERE delete_flag = 0;
 
 COMMENT ON TABLE user_role IS '用户-角色多对多，valid_from/valid_to 为生效时间范围';
 COMMENT ON COLUMN user_role.id IS '主键';
@@ -304,6 +319,7 @@ COMMENT ON COLUMN user_role.deleted_by IS '删除人ID';
 COMMENT ON COLUMN user_role.created_at IS '创建时间';
 COMMENT ON COLUMN user_role.updated_at IS '更新时间';
 COMMENT ON COLUMN user_role.deleted_at IS '软删时间';
+COMMENT ON COLUMN user_role.delete_flag IS '逻辑删除：0=未删除，删除时填本行id';
 
 -- -----------------------------------------------------------------------------
 -- 8. 角色-资源-操作中间表
@@ -321,12 +337,13 @@ CREATE TABLE role_resource_permission (
     deleted_by              BIGINT,
     created_at              TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at              TIMESTAMPTZ NOT NULL DEFAULT now(),
-    deleted_at              TIMESTAMPTZ
+    deleted_at              TIMESTAMPTZ,
+    delete_flag             BIGINT NOT NULL DEFAULT 0
 );
 
-CREATE UNIQUE INDEX uk_role_resource_permission ON role_resource_permission (tenant_id, abstract_role_id, resource_entity_id, operation_permission_id) WHERE deleted_at IS NULL;
-CREATE INDEX idx_role_resource_permission_role ON role_resource_permission (abstract_role_id) WHERE deleted_at IS NULL;
-CREATE INDEX idx_role_resource_permission_resource ON role_resource_permission (resource_entity_id) WHERE deleted_at IS NULL;
+CREATE UNIQUE INDEX uk_role_resource_permission ON role_resource_permission (tenant_id, abstract_role_id, resource_entity_id, operation_permission_id) WHERE delete_flag = 0;
+CREATE INDEX idx_role_resource_permission_role ON role_resource_permission (abstract_role_id) WHERE delete_flag = 0;
+CREATE INDEX idx_role_resource_permission_resource ON role_resource_permission (resource_entity_id) WHERE delete_flag = 0;
 
 COMMENT ON TABLE role_resource_permission IS '角色对某资源某操作的授权；condition_id 为 NULL 表示始终生效';
 COMMENT ON COLUMN role_resource_permission.id IS '主键';
@@ -342,6 +359,7 @@ COMMENT ON COLUMN role_resource_permission.deleted_by IS '删除人ID';
 COMMENT ON COLUMN role_resource_permission.created_at IS '创建时间';
 COMMENT ON COLUMN role_resource_permission.updated_at IS '更新时间';
 COMMENT ON COLUMN role_resource_permission.deleted_at IS '软删时间';
+COMMENT ON COLUMN role_resource_permission.delete_flag IS '逻辑删除：0=未删除，删除时填本行id';
 
 -- -----------------------------------------------------------------------------
 -- 9.1 域范围配置
@@ -357,10 +375,11 @@ CREATE TABLE domain_scope_config (
     deleted_by    BIGINT,
     created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
-    deleted_at    TIMESTAMPTZ
+    deleted_at    TIMESTAMPTZ,
+    delete_flag   BIGINT NOT NULL DEFAULT 0
 );
 
-CREATE UNIQUE INDEX uk_domain_scope_config ON domain_scope_config (tenant_id, biz_domain_id, scope_type, scope_ref_id) WHERE deleted_at IS NULL;
+CREATE UNIQUE INDEX uk_domain_scope_config ON domain_scope_config (tenant_id, biz_domain_id, scope_type, scope_ref_id) WHERE delete_flag = 0;
 
 COMMENT ON TABLE domain_scope_config IS '域下允许的角色类型/资源类型/操作：scope_type=ROLE_TYPE|RESOURCE_TYPE|OPERATION';
 COMMENT ON COLUMN domain_scope_config.id IS '主键';
@@ -374,6 +393,7 @@ COMMENT ON COLUMN domain_scope_config.deleted_by IS '删除人ID';
 COMMENT ON COLUMN domain_scope_config.created_at IS '创建时间';
 COMMENT ON COLUMN domain_scope_config.updated_at IS '更新时间';
 COMMENT ON COLUMN domain_scope_config.deleted_at IS '软删时间';
+COMMENT ON COLUMN domain_scope_config.delete_flag IS '逻辑删除：0=未删除，删除时填本行id';
 
 -- -----------------------------------------------------------------------------
 -- 9.2 域关系配置
@@ -391,10 +411,11 @@ CREATE TABLE domain_relation_config (
     deleted_by           BIGINT,
     created_at           TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at           TIMESTAMPTZ NOT NULL DEFAULT now(),
-    deleted_at           TIMESTAMPTZ
+    deleted_at           TIMESTAMPTZ,
+    delete_flag          BIGINT NOT NULL DEFAULT 0
 );
 
-CREATE UNIQUE INDEX uk_domain_relation_config ON domain_relation_config (tenant_id, biz_domain_id, relation_type, left_ref_id, right_ref_id) WHERE deleted_at IS NULL;
+CREATE UNIQUE INDEX uk_domain_relation_config ON domain_relation_config (tenant_id, biz_domain_id, relation_type, left_ref_id, right_ref_id) WHERE delete_flag = 0;
 
 COMMENT ON TABLE domain_relation_config IS '域内可关联关系：ROLE_RESOURCE(角色类型-资源类型)、RESOURCE_OPERATION(资源类型-操作)';
 COMMENT ON COLUMN domain_relation_config.id IS '主键';
@@ -410,6 +431,7 @@ COMMENT ON COLUMN domain_relation_config.deleted_by IS '删除人ID';
 COMMENT ON COLUMN domain_relation_config.created_at IS '创建时间';
 COMMENT ON COLUMN domain_relation_config.updated_at IS '更新时间';
 COMMENT ON COLUMN domain_relation_config.deleted_at IS '软删时间';
+COMMENT ON COLUMN domain_relation_config.delete_flag IS '逻辑删除：0=未删除，删除时填本行id';
 
 -- -----------------------------------------------------------------------------
 -- 9.3 域引用绑定表（全局角色/资源/操作绑定到域）
@@ -425,11 +447,12 @@ CREATE TABLE domain_scope_binding (
     deleted_by      BIGINT,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-    deleted_at      TIMESTAMPTZ
+    deleted_at      TIMESTAMPTZ,
+    delete_flag     BIGINT NOT NULL DEFAULT 0
 );
 
-CREATE UNIQUE INDEX uk_domain_scope_binding ON domain_scope_binding (tenant_id, biz_domain_id, bound_type, bound_entity_id) WHERE deleted_at IS NULL;
-CREATE INDEX idx_domain_scope_binding_domain ON domain_scope_binding (tenant_id, biz_domain_id) WHERE deleted_at IS NULL;
+CREATE UNIQUE INDEX uk_domain_scope_binding ON domain_scope_binding (tenant_id, biz_domain_id, bound_type, bound_entity_id) WHERE delete_flag = 0;
+CREATE INDEX idx_domain_scope_binding_domain ON domain_scope_binding (tenant_id, biz_domain_id) WHERE delete_flag = 0;
 
 COMMENT ON TABLE domain_scope_binding IS '将全局角色/资源/操作绑定到业务域，实现一份配置多域生效';
 COMMENT ON COLUMN domain_scope_binding.id IS '主键';
@@ -443,6 +466,7 @@ COMMENT ON COLUMN domain_scope_binding.deleted_by IS '删除人ID';
 COMMENT ON COLUMN domain_scope_binding.created_at IS '创建时间';
 COMMENT ON COLUMN domain_scope_binding.updated_at IS '更新时间';
 COMMENT ON COLUMN domain_scope_binding.deleted_at IS '软删时间';
+COMMENT ON COLUMN domain_scope_binding.delete_flag IS '逻辑删除：0=未删除，删除时填本行id';
 
 -- -----------------------------------------------------------------------------
 -- 9.4 资源依赖表（鉴权时展开，不写库）
@@ -459,11 +483,12 @@ CREATE TABLE resource_dependency (
     deleted_by                       BIGINT,
     created_at                       TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at                       TIMESTAMPTZ NOT NULL DEFAULT now(),
-    deleted_at                       TIMESTAMPTZ
+    deleted_at                       TIMESTAMPTZ,
+    delete_flag                      BIGINT NOT NULL DEFAULT 0
 );
 
-CREATE UNIQUE INDEX uk_resource_dependency ON resource_dependency (tenant_id, resource_entity_id, depends_on_resource_entity_id, COALESCE(source_operation_permission_id, 0)) WHERE deleted_at IS NULL;
-CREATE INDEX idx_resource_dependency_resource ON resource_dependency (resource_entity_id) WHERE deleted_at IS NULL;
+CREATE UNIQUE INDEX uk_resource_dependency ON resource_dependency (tenant_id, resource_entity_id, depends_on_resource_entity_id, COALESCE(source_operation_permission_id, 0)) WHERE delete_flag = 0;
+CREATE INDEX idx_resource_dependency_resource ON resource_dependency (resource_entity_id) WHERE delete_flag = 0;
 
 COMMENT ON TABLE resource_dependency IS '资源依赖：鉴权时递归检查依赖资源上的 required_operation';
 COMMENT ON COLUMN resource_dependency.id IS '主键';
@@ -478,6 +503,7 @@ COMMENT ON COLUMN resource_dependency.deleted_by IS '删除人ID';
 COMMENT ON COLUMN resource_dependency.created_at IS '创建时间';
 COMMENT ON COLUMN resource_dependency.updated_at IS '更新时间';
 COMMENT ON COLUMN resource_dependency.deleted_at IS '软删时间';
+COMMENT ON COLUMN resource_dependency.delete_flag IS '逻辑删除：0=未删除，删除时填本行id';
 
 -- -----------------------------------------------------------------------------
 -- 9.5 权限冲突规则表（同资源互斥，不同资源可同一人）
@@ -494,11 +520,12 @@ CREATE TABLE permission_conflict_rule (
     deleted_by                     BIGINT,
     created_at                     TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at                     TIMESTAMPTZ NOT NULL DEFAULT now(),
-    deleted_at                     TIMESTAMPTZ
+    deleted_at                     TIMESTAMPTZ,
+    delete_flag                    BIGINT NOT NULL DEFAULT 0
 );
 
-CREATE UNIQUE INDEX uk_permission_conflict_rule_domain ON permission_conflict_rule (tenant_id, biz_domain_id, first_operation_permission_id, second_operation_permission_id) WHERE biz_domain_id IS NOT NULL AND deleted_at IS NULL;
-CREATE UNIQUE INDEX uk_permission_conflict_rule_global ON permission_conflict_rule (tenant_id, first_operation_permission_id, second_operation_permission_id) WHERE biz_domain_id IS NULL AND deleted_at IS NULL;
+CREATE UNIQUE INDEX uk_permission_conflict_rule_domain ON permission_conflict_rule (tenant_id, biz_domain_id, first_operation_permission_id, second_operation_permission_id) WHERE biz_domain_id IS NOT NULL AND delete_flag = 0;
+CREATE UNIQUE INDEX uk_permission_conflict_rule_global ON permission_conflict_rule (tenant_id, first_operation_permission_id, second_operation_permission_id) WHERE biz_domain_id IS NULL AND delete_flag = 0;
 
 COMMENT ON TABLE permission_conflict_rule IS '同一用户对同一 resource_entity_id 不能同时拥有 first 与 second 操作；存库时 first_id < second_id';
 COMMENT ON COLUMN permission_conflict_rule.id IS '主键';
@@ -513,6 +540,7 @@ COMMENT ON COLUMN permission_conflict_rule.deleted_by IS '删除人ID';
 COMMENT ON COLUMN permission_conflict_rule.created_at IS '创建时间';
 COMMENT ON COLUMN permission_conflict_rule.updated_at IS '更新时间';
 COMMENT ON COLUMN permission_conflict_rule.deleted_at IS '软删时间';
+COMMENT ON COLUMN permission_conflict_rule.delete_flag IS '逻辑删除：0=未删除，删除时填本行id';
 
 -- -----------------------------------------------------------------------------
 -- 10. 变更记录表

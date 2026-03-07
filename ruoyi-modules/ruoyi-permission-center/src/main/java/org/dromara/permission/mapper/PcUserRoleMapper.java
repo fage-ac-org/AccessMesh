@@ -1,10 +1,12 @@
 package org.dromara.permission.mapper;
 
-import com.baomidou.mybatisplus.core.mapper.BaseMapper;
-import org.dromara.permission.domain.entity.PcUserRole;
+import org.dromara.common.mybatis.core.mapper.BaseMapperPlus;
+import org.dromara.permission.domain.PcUserRole;
 
 /**
- * 权限中心-用户角色 Mapper
+ * 用户-角色关联表 user_role 数据层
+ *
+ * @author RuoYi-Cloud-Plus
  */
-public interface PcUserRoleMapper extends BaseMapper<PcUserRole> {
+public interface PcUserRoleMapper extends BaseMapperPlus<PcUserRole, PcUserRole> {
 }

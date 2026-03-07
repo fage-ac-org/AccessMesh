@@ -17,7 +17,5 @@ public class RuoYiPermissionCenterApplication {
     public static void main(String[] args) {
         SpringApplication application = new SpringApplication(RuoYiPermissionCenterApplication.class);
         application.setApplicationStartup(new BufferingApplicationStartup(2048));
-        application.run(args);
-        System.out.println("(♥◠‿◠)ﾉﾞ  权限中心启动成功   ლ(´ڡ`ლ)ﾞ  ");
     }
 }
