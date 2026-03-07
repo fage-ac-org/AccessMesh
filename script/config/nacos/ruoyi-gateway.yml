@@ -6,7 +6,7 @@ security:
       - /auth/code
       - /auth/logout
       - /auth/login
-      - /auth/binding/*
+      - /auth/binding
       - /auth/register
       - /auth/tenant/list
       - /resource/sms/code
@@ -34,6 +34,13 @@ spring:
               uri: lb://ruoyi-auth
               predicates:
                 - Path=/auth/**
+              filters:
+                - StripPrefix=1
+            # 权限中心
+            - id: ruoyi-permission-center
+              uri: lb://ruoyi-permission-center
+              predicates:
+                - Path=/permission-center/**
               filters:
                 - StripPrefix=1
             # 代码生成

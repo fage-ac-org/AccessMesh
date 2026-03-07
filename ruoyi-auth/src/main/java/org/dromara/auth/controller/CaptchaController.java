@@ -6,6 +6,7 @@ import cn.hutool.core.util.IdUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dromara.auth.domain.vo.CaptchaVo;
+import org.dromara.auth.form.CaptchaCodeBody;
 import org.dromara.auth.enums.CaptchaType;
 import org.dromara.auth.properties.CaptchaProperties;
 import org.dromara.common.core.constant.Constants;
@@ -21,7 +22,8 @@ import org.springframework.expression.Expression;
 import org.springframework.expression.ExpressionParser;
 import org.springframework.expression.spel.standard.SpelExpressionParser;
 import org.springframework.validation.annotation.Validated;
-import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.Duration;
@@ -41,9 +43,11 @@ public class CaptchaController {
 
     /**
      * 生成验证码
+     *
+     * @param body 入参（JSON 对象，可为空体 {}）
      */
-    @GetMapping("/code")
-    public R<CaptchaVo> getCode() {
+    @PostMapping("/code")
+    public R<CaptchaVo> getCode(@RequestBody(required = false) CaptchaCodeBody body) {
         CaptchaVo captchaVo = new CaptchaVo();
         boolean captchaEnabled = captchaProperties.getEnabled();
         if (!captchaEnabled) {

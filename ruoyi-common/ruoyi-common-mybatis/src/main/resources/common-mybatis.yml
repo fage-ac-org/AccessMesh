@@ -1,4 +1,10 @@
 # 内置配置 不允许修改 如需修改请在 nacos 上写相同配置覆盖
+# 是否启用数据权限 SQL 过滤（需配合权限数据源，如权限中心或本地权限服务）
+ruoyi:
+  mybatis:
+    data-permission:
+      enabled: false
+
 # MyBatisPlus配置
 # https://baomidou.com/config/
 mybatis-plus:

@@ -15,8 +15,11 @@ import org.apache.dubbo.config.annotation.DubboReference;
 import org.dromara.auth.domain.vo.LoginTenantVo;
 import org.dromara.auth.domain.vo.LoginVo;
 import org.dromara.auth.domain.vo.TenantListVo;
+import org.dromara.auth.form.AuthBindingBody;
 import org.dromara.auth.form.RegisterBody;
 import org.dromara.auth.form.SocialLoginBody;
+import org.dromara.auth.form.TenantListBody;
+import org.dromara.auth.form.UnlockSocialBody;
 import org.dromara.auth.service.IAuthStrategy;
 import org.dromara.auth.service.SysLoginService;
 import org.dromara.common.core.constant.SystemConstants;
@@ -40,6 +43,8 @@ import org.dromara.system.api.RemoteTenantService;
 import org.dromara.system.api.domain.vo.RemoteClientVo;
 import org.dromara.system.api.domain.vo.RemoteTenantVo;
 import org.springframework.web.bind.annotation.*;
+
+import org.springframework.validation.annotation.Validated;
 
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
@@ -113,20 +118,20 @@ public class TokenController {
     /**
      * 第三方登录请求
      *
-     * @param source 登录来源
+     * @param body 绑定入参（source、tenantId、domain）
      * @return 结果
      */
-    @GetMapping("/binding/{source}")
-    public R<String> authBinding(@PathVariable("source") String source,
-                                 @RequestParam String tenantId, @RequestParam String domain) {
+    @PostMapping("/binding")
+    public R<String> authBinding(@RequestBody @Validated AuthBindingBody body) {
+        String source = body.getSource();
         SocialLoginConfigProperties obj = socialProperties.getType().get(source);
         if (ObjectUtil.isNull(obj)) {
             return R.fail(source + "平台账号暂不支持");
         }
         AuthRequest authRequest = SocialUtils.getAuthRequest(source, socialProperties);
         Map<String, String> map = new HashMap<>();
-        map.put("tenantId", tenantId);
-        map.put("domain", domain);
+        map.put("tenantId", body.getTenantId());
+        map.put("domain", body.getDomain());
         map.put("state", AuthStateUtils.createState());
         String authorizeUrl = authRequest.authorize(Base64.encode(JsonUtils.toJsonString(map), StandardCharsets.UTF_8));
         return R.ok("操作成功", authorizeUrl);
@@ -157,11 +162,11 @@ public class TokenController {
     /**
      * 取消授权
      *
-     * @param socialId socialId
+     * @param body socialId
      */
-    @DeleteMapping(value = "/unlock/{socialId}")
-    public R<Void> unlockSocial(@PathVariable Long socialId) {
-        Boolean rows = remoteSocialService.deleteWithValidById(socialId);
+    @PostMapping("/unlock")
+    public R<Void> unlockSocial(@RequestBody @Validated UnlockSocialBody body) {
+        Boolean rows = remoteSocialService.deleteWithValidById(body.getSocialId());
         return rows ? R.ok() : R.fail("取消授权失败");
     }
 
@@ -191,11 +196,14 @@ public class TokenController {
     /**
      * 登录页面租户下拉框
      *
+     * @param body 可选入参（如 domain 过滤），可为空体
+     * @param request 用于获取 referer/host
      * @return 租户列表
      */
     @RateLimiter(time = 60, count = 20, limitType = LimitType.IP)
-    @GetMapping("/tenant/list")
-    public R<LoginTenantVo> tenantList(HttpServletRequest request) throws Exception {
+    @PostMapping("/tenant/list")
+    public R<LoginTenantVo> tenantList(@RequestBody(required = false) TenantListBody body,
+                                      HttpServletRequest request) throws Exception {
         // 返回对象
         LoginTenantVo result = new LoginTenantVo();
         boolean enable = TenantHelper.isEnable();
@@ -225,9 +233,11 @@ public class TokenController {
         } else {
             host = new URL(request.getRequestURL().toString()).getHost();
         }
+        // 若 body 中指定了 domain 则优先使用，否则用 request 解析的 host
+        String filterDomain = (body != null && StringUtils.isNotBlank(body.getDomain())) ? body.getDomain() : host;
         // 根据域名进行筛选
         List<TenantListVo> list = StreamUtils.filter(voList, vo ->
-            StringUtils.equalsIgnoreCase(vo.getDomain(), host));
+            StringUtils.equalsIgnoreCase(vo.getDomain(), filterDomain));
         result.setVoList(CollUtil.isNotEmpty(list) ? list : voList);
         return R.ok(result);
     }

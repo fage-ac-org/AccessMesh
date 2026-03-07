@@ -4,15 +4,15 @@ import lombok.RequiredArgsConstructor;
 import org.apache.dubbo.config.annotation.DubboService;
 import org.dromara.system.api.RemotePermissionService;
 import org.dromara.system.service.ISysPermissionService;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 
 import java.util.Set;
 
 /**
- * 权限服务
- *
- * @author Lion Li
+ * 权限服务（ruoyi.permission.source=local 时启用；接入权限中心时设为 center 则使用权限中心实现）
  */
+@ConditionalOnProperty(name = "ruoyi.permission.source", havingValue = "local", matchIfMissing = true)
 @RequiredArgsConstructor
 @Service
 @DubboService

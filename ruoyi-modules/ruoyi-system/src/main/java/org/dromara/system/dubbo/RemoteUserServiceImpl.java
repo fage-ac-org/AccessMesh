@@ -8,6 +8,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import lombok.RequiredArgsConstructor;
 import org.apache.dubbo.config.annotation.DubboService;
 import org.dromara.common.core.constant.SystemConstants;
+import org.dromara.common.core.constant.TenantConstants;
 import org.dromara.common.core.enums.UserStatus;
 import org.dromara.common.core.exception.ServiceException;
 import org.dromara.common.core.exception.user.UserException;
@@ -36,6 +37,7 @@ import org.dromara.system.mapper.SysUserMapper;
 import org.dromara.system.mapper.SysUserPostMapper;
 import org.dromara.system.mapper.SysUserRoleMapper;
 import org.dromara.system.service.*;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -257,8 +259,12 @@ public class RemoteUserServiceImpl implements RemoteUserService {
         return userService.selectEmailById(userId);
     }
 
+    @Value("${ruoyi.permission.source:local}")
+    private String permissionSource;
+
     /**
      * 构建登录用户
+     * <p>ruoyi.permission.source=center 时从权限服务拉取菜单/角色；否则使用占位（不校验权限）。</p>
      */
     private LoginUser buildLoginUser(SysUserVo userVo) {
         LoginUser loginUser = new LoginUser();
@@ -270,16 +276,25 @@ public class RemoteUserServiceImpl implements RemoteUserService {
         loginUser.setNickname(userVo.getNickName());
         loginUser.setPassword(userVo.getPassword());
         loginUser.setUserType(userVo.getUserType());
-        loginUser.setMenuPermission(permissionService.getMenuPermission(userId));
-        loginUser.setRolePermission(permissionService.getRolePermission(userId));
+        if ("center".equals(permissionSource)) {
+            loginUser.setMenuPermission(permissionService.getMenuPermission(userId));
+            loginUser.setRolePermission(permissionService.getRolePermission(userId));
+        } else {
+            loginUser.setMenuPermission(Collections.singleton("*:*:*"));
+            loginUser.setRolePermission(Collections.singleton(TenantConstants.SUPER_ADMIN_ROLE_KEY));
+        }
         if (ObjectUtil.isNotNull(userVo.getDeptId())) {
             Opt<SysDeptVo> deptOpt = Opt.of(userVo.getDeptId()).map(deptService::selectDeptById);
             loginUser.setDeptName(deptOpt.map(SysDeptVo::getDeptName).orElse(StringUtils.EMPTY));
             loginUser.setDeptCategory(deptOpt.map(SysDeptVo::getDeptCategory).orElse(StringUtils.EMPTY));
         }
-        List<SysRoleVo> roles = roleService.selectRolesByUserId(userId);
+        if ("center".equals(permissionSource)) {
+            List<SysRoleVo> roles = roleService.selectRolesByUserId(userId);
+            loginUser.setRoles(BeanUtil.copyToList(roles, RoleDTO.class));
+        } else {
+            loginUser.setRoles(Collections.emptyList());
+        }
         List<SysPostVo> posts = postService.selectPostsByUserId(userId);
-        loginUser.setRoles(BeanUtil.copyToList(roles, RoleDTO.class));
         loginUser.setPosts(BeanUtil.copyToList(posts, PostDTO.class));
         return loginUser;
     }

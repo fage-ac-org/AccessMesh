@@ -6,8 +6,10 @@ import cn.dev33.satoken.stp.StpInterface;
 import cn.dev33.satoken.stp.StpLogic;
 import org.dromara.common.core.factory.YmlPropertySourceFactory;
 import org.dromara.common.satoken.core.dao.PlusSaTokenDao;
+import org.dromara.common.satoken.core.service.AuthOnlyStpInterface;
 import org.dromara.common.satoken.core.service.SaPermissionImpl;
 import org.dromara.common.satoken.handler.SaTokenExceptionHandler;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.PropertySource;
@@ -27,11 +29,14 @@ public class SaTokenConfiguration {
     }
 
     /**
-     * 权限接口实现(使用bean注入方便用户替换)
+     * 权限接口实现：ruoyi.permission.source=center 时使用权限中心（SaPermissionImpl）；否则仅认证（AuthOnlyStpInterface）
      */
     @Bean
-    public StpInterface stpInterface() {
-        return new SaPermissionImpl();
+    public StpInterface stpInterface(@Value("${ruoyi.permission.source:local}") String permissionSource) {
+        if ("center".equals(permissionSource)) {
+            return new SaPermissionImpl();
+        }
+        return new AuthOnlyStpInterface();
     }
 
     /**

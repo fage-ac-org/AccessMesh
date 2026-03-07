@@ -19,7 +19,9 @@ import org.dromara.common.mybatis.interceptor.PlusDataPermissionInterceptor;
 import org.dromara.common.mybatis.service.SysDataScopeService;
 import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.beans.BeansException;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.factory.config.BeanDefinition;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.PropertySource;
@@ -38,6 +40,9 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
 @PropertySource(value = "classpath:common-mybatis.yml", factory = YmlPropertySourceFactory.class)
 public class MybatisPlusConfiguration {
 
+    @Value("${ruoyi.mybatis.data-permission.enabled:false}")
+    private boolean dataPermissionEnabled;
+
     @Bean
     public MybatisPlusInterceptor mybatisPlusInterceptor() {
         MybatisPlusInterceptor interceptor = new MybatisPlusInterceptor();
@@ -47,8 +52,10 @@ public class MybatisPlusConfiguration {
             interceptor.addInnerInterceptor(tenant);
         } catch (BeansException ignore) {
         }
-        // 数据权限处理
-        interceptor.addInnerInterceptor(dataPermissionInterceptor());
+        // 数据权限处理（通过 ruoyi.mybatis.data-permission.enabled 开关）
+        if (dataPermissionEnabled) {
+            interceptor.addInnerInterceptor(dataPermissionInterceptor());
+        }
         // 分页插件
         interceptor.addInnerInterceptor(paginationInnerInterceptor());
         // 乐观锁插件
@@ -64,10 +71,11 @@ public class MybatisPlusConfiguration {
     }
 
     /**
-     * 数据权限切面处理器
+     * 数据权限切面处理器（仅在数据权限开启时注册）
      */
     @Bean
     @Role(BeanDefinition.ROLE_INFRASTRUCTURE)
+    @ConditionalOnProperty(name = "ruoyi.mybatis.data-permission.enabled", havingValue = "true")
     public DataPermissionPointcutAdvisor dataPermissionPointcutAdvisor() {
         return new DataPermissionPointcutAdvisor();
     }

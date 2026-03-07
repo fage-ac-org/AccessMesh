@@ -12,6 +12,7 @@ import org.dromara.system.api.RemoteDataScopeService;
 import org.dromara.system.domain.SysRoleDept;
 import org.dromara.system.mapper.SysDeptMapper;
 import org.dromara.system.mapper.SysRoleDeptMapper;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
@@ -23,8 +24,9 @@ import java.util.List;
  * 注意: 此Service内不允许调用标注`数据权限`注解的方法
  * 例如: deptMapper.selectList 此 selectList 方法标注了`数据权限`注解 会出现循环解析的问题
  *
- * @author Lion Li
+ * <p>ruoyi.permission.source=local 时启用；接入权限中心时设为 center 则使用权限中心实现</p>
  */
+@ConditionalOnProperty(name = "ruoyi.permission.source", havingValue = "local", matchIfMissing = true)
 @RequiredArgsConstructor
 @Service
 @DubboService
