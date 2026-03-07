@@ -21,16 +21,21 @@ public class PgLongArrayToStringTypeHandler extends BaseTypeHandler<String> {
 
     @Override
     public void setNonNullParameter(PreparedStatement ps, int i, String parameter, JdbcType jdbcType) throws SQLException {
-        if (parameter == null || parameter.isEmpty()) {
-            ps.setArray(i, null);
+        if (parameter.isEmpty()) {
+            ps.setNull(i, java.sql.Types.ARRAY);
             return;
         }
-        Long[] longs = Arrays.stream(parameter.split(","))
-            .map(String::trim)
-            .filter(s -> !s.isEmpty())
-            .map(Long::parseLong)
-            .toArray(Long[]::new);
-        ps.setObject(i, longs, java.sql.Types.ARRAY);
+        try {
+            Long[] longs = Arrays.stream(parameter.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .map(Long::parseLong)
+                .toArray(Long[]::new);
+            java.sql.Array array = ps.getConnection().createArrayOf("BIGINT", longs);
+            ps.setArray(i, array);
+        } catch (NumberFormatException e) {
+            throw new SQLException("Invalid BIGINT array value: " + parameter, e);
+        }
     }
 
     @Override

@@ -33,8 +33,8 @@ public class PcOperationPermission extends PermissionBaseEntity {
     private String name;
 
     /** 本操作独占位，如 1、2、4、8 */
-    private Integer binaryBit;
+    private Long binaryBit;
 
     /** 继承的位掩码，实际权限=binary_bit|inherit_mask */
-    private Integer inheritMask;
+    private Long inheritMask;
 }

@@ -47,6 +47,9 @@ public class PermissionSyncServiceImpl implements PermissionSyncService {
         if (CollUtil.isEmpty(req.getItems())) {
             return;
         }
+        if (req.getItems().size() > BATCH_LIMIT) {
+            throw new ServiceException("单批 users 数量不得超过 " + BATCH_LIMIT);
+        }
         Long tenantId = req.getTenantId();
         Integer userType = req.getUserType();
         LocalDateTime now = LocalDateTime.now();
@@ -59,7 +62,7 @@ public class PermissionSyncServiceImpl implements PermissionSyncService {
                 .eq(PcAbstractUser::getUserType, userType)
                 .in(PcAbstractUser::getExternalId, externalIds)
                 .eq(PcAbstractUser::getDeleteFlag, NOT_DELETED)
-        ).stream().collect(Collectors.toMap(PcAbstractUser::getExternalId, Function.identity()));
+        ).stream().collect(Collectors.toMap(PcAbstractUser::getExternalId, Function.identity(), (a, b) -> a));
 
         int insertCount = 0;
         int updateCount = 0;
@@ -97,6 +100,9 @@ public class PermissionSyncServiceImpl implements PermissionSyncService {
         if (CollUtil.isEmpty(req.getItems())) {
             return;
         }
+        if (req.getItems().size() > BATCH_LIMIT) {
+            throw new ServiceException("单批 roles 数量不得超过 " + BATCH_LIMIT);
+        }
         Long tenantId = req.getTenantId();
         Long bizDomainId = req.getBizDomainId();
         LocalDateTime now = LocalDateTime.now();
@@ -108,7 +114,7 @@ public class PermissionSyncServiceImpl implements PermissionSyncService {
                 PcAbstractRole::getBizDomainId, tenantId, bizDomainId)
                 .in(PcAbstractRole::getExternalId, externalIds)
                 .eq(PcAbstractRole::getDeleteFlag, NOT_DELETED)
-        ).stream().collect(Collectors.toMap(PcAbstractRole::getExternalId, Function.identity()));
+        ).stream().collect(Collectors.toMap(PcAbstractRole::getExternalId, Function.identity(), (a, b) -> a));
 
         List<String> parentExternalIds = req.getItems().stream()
             .map(SyncRolesReq.SyncRoleItem::getParentExternalId)
@@ -188,6 +194,9 @@ public class PermissionSyncServiceImpl implements PermissionSyncService {
         if (CollUtil.isEmpty(req.getItems())) {
             return;
         }
+        if (req.getItems().size() > BATCH_LIMIT) {
+            throw new ServiceException("单批 resources 数量不得超过 " + BATCH_LIMIT);
+        }
         Long tenantId = req.getTenantId();
         Long bizDomainId = req.getBizDomainId();
         Integer resourceType = req.getResourceType();
@@ -200,7 +209,7 @@ public class PermissionSyncServiceImpl implements PermissionSyncService {
                 PcResourceEntity::getBizDomainId, tenantId, bizDomainId)
                 .in(PcResourceEntity::getCode, codes)
                 .eq(PcResourceEntity::getDeleteFlag, NOT_DELETED)
-        ).stream().collect(Collectors.toMap(PcResourceEntity::getCode, Function.identity()));
+        ).stream().collect(Collectors.toMap(PcResourceEntity::getCode, Function.identity(), (a, b) -> a));
 
         List<String> parentCodes = req.getItems().stream()
             .map(SyncResourcesReq.SyncResourceItem::getParentCode)
@@ -290,6 +299,31 @@ public class PermissionSyncServiceImpl implements PermissionSyncService {
         Map<String, Map<Integer, PcAbstractUser>> userCache = preloadUsers(tenantId, req.getItems());
         Map<String, PcAbstractRole> roleCache = preloadRoles(tenantId, req.getItems());
 
+        // 预加载已有user-role关联，避免N+1查询
+        Set<Long> allUserIds = new HashSet<>();
+        Set<Long> allRoleIds = new HashSet<>();
+        for (SyncUserRolesReq.SyncUserRoleItem item : req.getItems()) {
+            PcAbstractUser user = resolveUser(userCache, item.getUserExternalId(), item.getUserType());
+            if (user != null) {
+                allUserIds.add(user.getId());
+            }
+            PcAbstractRole role = roleCache.get(item.getRoleExternalId());
+            if (role != null) {
+                allRoleIds.add(role.getId());
+            }
+        }
+        Map<String, PcUserRole> existingUserRoleMap = new HashMap<>();
+        if (!allUserIds.isEmpty() && !allRoleIds.isEmpty()) {
+            List<PcUserRole> existingList = userRoleMapper.selectList(new LambdaQueryWrapper<PcUserRole>()
+                .eq(PcUserRole::getTenantId, tenantId)
+                .in(PcUserRole::getAbstractUserId, allUserIds)
+                .in(PcUserRole::getAbstractRoleId, allRoleIds)
+                .eq(PcUserRole::getDeleteFlag, NOT_DELETED));
+            for (PcUserRole ur : existingList) {
+                existingUserRoleMap.put(ur.getAbstractUserId() + "_" + ur.getAbstractRoleId(), ur);
+            }
+        }
+
         Set<String> seen = new HashSet<>();
         int insertCount = 0;
         int updateCount = 0;
@@ -310,11 +344,7 @@ public class PermissionSyncServiceImpl implements PermissionSyncService {
             if (!seen.add(key)) {
                 continue;
             }
-            PcUserRole existing = userRoleMapper.selectOne(new LambdaQueryWrapper<PcUserRole>()
-                .eq(PcUserRole::getTenantId, tenantId)
-                .eq(PcUserRole::getAbstractUserId, user.getId())
-                .eq(PcUserRole::getAbstractRoleId, role.getId())
-                .eq(PcUserRole::getDeleteFlag, NOT_DELETED));
+            PcUserRole existing = existingUserRoleMap.get(user.getId() + "_" + role.getId());
             if (existing != null) {
                 existing.setValidFrom(item.getValidFrom());
                 existing.setValidTo(item.getValidTo());
@@ -337,17 +367,10 @@ public class PermissionSyncServiceImpl implements PermissionSyncService {
         }
 
         if (Boolean.TRUE.equals(req.getDeleteNotInList())) {
-            Set<Long> userIds = new HashSet<>();
-            for (SyncUserRolesReq.SyncUserRoleItem item : req.getItems()) {
-                PcAbstractUser user = resolveUser(userCache, item.getUserExternalId(), item.getUserType());
-                if (user != null) {
-                    userIds.add(user.getId());
-                }
-            }
-            if (!userIds.isEmpty()) {
+            if (!allUserIds.isEmpty()) {
                 List<PcUserRole> list = userRoleMapper.selectList(new LambdaQueryWrapper<PcUserRole>()
                     .eq(PcUserRole::getTenantId, tenantId)
-                    .in(PcUserRole::getAbstractUserId, userIds)
+                    .in(PcUserRole::getAbstractUserId, allUserIds)
                     .eq(PcUserRole::getDeleteFlag, NOT_DELETED));
                 for (PcUserRole ur : list) {
                     String k = ur.getAbstractUserId() + "_" + ur.getAbstractRoleId();
@@ -384,8 +407,8 @@ public class PermissionSyncServiceImpl implements PermissionSyncService {
             .map(SyncRolePermissionsReq.SyncRolePermissionItem::getResourceCode)
             .distinct().collect(Collectors.toList());
         Map<String, PcResourceEntity> resourceMap = resourceEntityMapper.selectList(
-            new LambdaQueryWrapper<PcResourceEntity>()
-                .eq(PcResourceEntity::getTenantId, tenantId)
+            buildBizDomainQuery(new LambdaQueryWrapper<PcResourceEntity>(), PcResourceEntity::getTenantId,
+                PcResourceEntity::getBizDomainId, tenantId, bizDomainId)
                 .in(PcResourceEntity::getCode, resourceCodes)
                 .eq(PcResourceEntity::getDeleteFlag, NOT_DELETED)
         ).stream().collect(Collectors.toMap(PcResourceEntity::getCode, Function.identity(), (a, b) -> a));
@@ -394,8 +417,8 @@ public class PermissionSyncServiceImpl implements PermissionSyncService {
             .map(SyncRolePermissionsReq.SyncRolePermissionItem::getOperationCode)
             .distinct().collect(Collectors.toList());
         Map<String, PcOperationPermission> opMap = operationPermissionMapper.selectList(
-            new LambdaQueryWrapper<PcOperationPermission>()
-                .eq(PcOperationPermission::getTenantId, tenantId)
+            buildBizDomainQuery(new LambdaQueryWrapper<PcOperationPermission>(), PcOperationPermission::getTenantId,
+                PcOperationPermission::getBizDomainId, tenantId, bizDomainId)
                 .in(PcOperationPermission::getCode, operationCodes)
                 .eq(PcOperationPermission::getDeleteFlag, NOT_DELETED)
         ).stream().collect(Collectors.toMap(PcOperationPermission::getCode, Function.identity(), (a, b) -> a));
@@ -527,8 +550,10 @@ public class PermissionSyncServiceImpl implements PermissionSyncService {
             return "INSERT_UPDATE";
         } else if (updateCount > 0) {
             return "UPDATE";
+        } else if (insertCount > 0) {
+            return "INSERT";
         }
-        return "INSERT";
+        return "NOOP";
     }
 
     /**
@@ -582,23 +607,29 @@ public class PermissionSyncServiceImpl implements PermissionSyncService {
             .collect(Collectors.toMap(SyncRolesReq.SyncRoleItem::getExternalId, Function.identity(), (a, b) -> a));
         Set<String> batchIds = byId.keySet();
         List<SyncRolesReq.SyncRoleItem> result = new ArrayList<>(items.size());
+        Set<String> visiting = new HashSet<>();
         Set<String> visited = new HashSet<>();
         for (SyncRolesReq.SyncRoleItem item : items) {
-            topoVisitRole(item, byId, batchIds, visited, result);
+            topoVisitRole(item, byId, batchIds, visiting, visited, result);
         }
         return result;
     }
 
     private void topoVisitRole(SyncRolesReq.SyncRoleItem item,
                                Map<String, SyncRolesReq.SyncRoleItem> byId,
-                               Set<String> batchIds, Set<String> visited,
+                               Set<String> batchIds, Set<String> visiting, Set<String> visited,
                                List<SyncRolesReq.SyncRoleItem> result) {
-        if (!visited.add(item.getExternalId())) {
+        if (visited.contains(item.getExternalId())) {
             return;
         }
-        if (StrUtil.isNotBlank(item.getParentExternalId()) && batchIds.contains(item.getParentExternalId())) {
-            topoVisitRole(byId.get(item.getParentExternalId()), byId, batchIds, visited, result);
+        if (!visiting.add(item.getExternalId())) {
+            throw new ServiceException("角色层级存在循环依赖: " + item.getExternalId());
         }
+        if (StrUtil.isNotBlank(item.getParentExternalId()) && batchIds.contains(item.getParentExternalId())) {
+            topoVisitRole(byId.get(item.getParentExternalId()), byId, batchIds, visiting, visited, result);
+        }
+        visiting.remove(item.getExternalId());
+        visited.add(item.getExternalId());
         result.add(item);
     }
 
@@ -607,23 +638,29 @@ public class PermissionSyncServiceImpl implements PermissionSyncService {
             .collect(Collectors.toMap(SyncResourcesReq.SyncResourceItem::getCode, Function.identity(), (a, b) -> a));
         Set<String> batchCodes = byCode.keySet();
         List<SyncResourcesReq.SyncResourceItem> result = new ArrayList<>(items.size());
+        Set<String> visiting = new HashSet<>();
         Set<String> visited = new HashSet<>();
         for (SyncResourcesReq.SyncResourceItem item : items) {
-            topoVisitResource(item, byCode, batchCodes, visited, result);
+            topoVisitResource(item, byCode, batchCodes, visiting, visited, result);
         }
         return result;
     }
 
     private void topoVisitResource(SyncResourcesReq.SyncResourceItem item,
                                    Map<String, SyncResourcesReq.SyncResourceItem> byCode,
-                                   Set<String> batchCodes, Set<String> visited,
+                                   Set<String> batchCodes, Set<String> visiting, Set<String> visited,
                                    List<SyncResourcesReq.SyncResourceItem> result) {
-        if (!visited.add(item.getCode())) {
+        if (visited.contains(item.getCode())) {
             return;
         }
-        if (StrUtil.isNotBlank(item.getParentCode()) && batchCodes.contains(item.getParentCode())) {
-            topoVisitResource(byCode.get(item.getParentCode()), byCode, batchCodes, visited, result);
+        if (!visiting.add(item.getCode())) {
+            throw new ServiceException("资源层级存在循环依赖: " + item.getCode());
         }
+        if (StrUtil.isNotBlank(item.getParentCode()) && batchCodes.contains(item.getParentCode())) {
+            topoVisitResource(byCode.get(item.getParentCode()), byCode, batchCodes, visiting, visited, result);
+        }
+        visiting.remove(item.getCode());
+        visited.add(item.getCode());
         result.add(item);
     }
 }

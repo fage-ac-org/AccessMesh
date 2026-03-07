@@ -8,6 +8,7 @@ import org.dromara.common.mybatis.core.page.TableDataInfo;
 import org.dromara.common.json.utils.JsonUtils;
 import org.dromara.permission.domain.PcPermissionChangeLog;
 import org.dromara.permission.domain.bo.ChangeLogQueryBo;
+import org.dromara.permission.domain.dto.ChangeLogParam;
 import org.dromara.permission.domain.vo.ChangeLogVo;
 import org.dromara.permission.mapper.PcPermissionChangeLogMapper;
 import org.dromara.permission.service.PermissionChangeLogService;
@@ -31,6 +32,13 @@ public class PermissionChangeLogServiceImpl implements PermissionChangeLogServic
     private final PcPermissionChangeLogMapper changeLogMapper;
 
     @Override
+    public void writeChangeLog(ChangeLogParam param) {
+        writeChangeLog(param.getTenantId(), param.getBizDomainId(), param.getEntityType(),
+            param.getEntityId(), param.getOperation(), param.getOldSnapshot(),
+            param.getNewSnapshot(), param.getRequestId(), param.getChangeSource());
+    }
+
+    @Override
     public void writeChangeLog(Long tenantId, Long bizDomainId, String entityType, Long entityId,
                                String operation, Object oldSnapshot, Object newSnapshot,
                                String requestId, String changeSource) {
@@ -48,7 +56,7 @@ public class PermissionChangeLogServiceImpl implements PermissionChangeLogServic
             logEntity.setCreatedAt(LocalDateTime.now());
             changeLogMapper.insert(logEntity);
         } catch (Exception e) {
-            log.error("writeChangeLog failed, entityType={}, entityId={}, operation={}", entityType, entityId, operation, e);
+            log.error("[CRITICAL] writeChangeLog failed, entityType={}, entityId={}, operation={}, tenantId={}", entityType, entityId, operation, tenantId, e);
         }
     }
 

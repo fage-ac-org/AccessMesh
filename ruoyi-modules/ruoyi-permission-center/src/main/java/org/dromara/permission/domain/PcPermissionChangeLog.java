@@ -14,7 +14,10 @@ import java.time.LocalDateTime;
  */
 @Data
 @TableName("permission_change_log")
-public class PcPermissionChangeLog {
+public class PcPermissionChangeLog implements java.io.Serializable {
+
+    @java.io.Serial
+    private static final long serialVersionUID = 1L;
 
     /** 主键 */
     @TableId("id")

@@ -3,6 +3,7 @@ package org.dromara.permission.service;
 import org.dromara.common.mybatis.core.page.PageQuery;
 import org.dromara.common.mybatis.core.page.TableDataInfo;
 import org.dromara.permission.domain.bo.ChangeLogQueryBo;
+import org.dromara.permission.domain.dto.ChangeLogParam;
 import org.dromara.permission.domain.vo.ChangeLogVo;
 
 /**
@@ -11,6 +12,11 @@ import org.dromara.permission.domain.vo.ChangeLogVo;
  * @author RuoYi-Cloud-Plus
  */
 public interface PermissionChangeLogService {
+
+    /**
+     * 写入一条变更记录（参数封装版）
+     */
+    void writeChangeLog(ChangeLogParam param);
 
     /**
      * 写入一条变更记录

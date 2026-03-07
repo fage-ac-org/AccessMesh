@@ -3,6 +3,7 @@ package org.dromara.permission.domain.dto;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import lombok.Data;
 
 import java.time.LocalDateTime;
@@ -21,6 +22,7 @@ public class SyncUserRolesReq {
 
     @Valid
     @NotNull(message = "items不能为空")
+    @Size(max = 500, message = "单批数量不得超过500")
     private List<SyncUserRoleItem> items;
 
     /** true 时按本批回收未出现在列表中的关联（该用户下不在 items 内的角色关联做逻辑删除） */
