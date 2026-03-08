@@ -151,7 +151,7 @@ jobs:
           esac
 
           echo "Deploying $DEPLOY with image $IMAGE:$TAG"
-          kubectl set image deployment/$DEPLOY $SERVICE=$IMAGE:$TAG -n ruoyi
+          kubectl set image deployment/$DEPLOY $SERVICE=$IMAGE:$TAG -n web
 
       - name: Wait for Rollout
         run: |
@@ -169,7 +169,7 @@ jobs:
             permission-center) DEPLOY=ruoyi-permission-center ;;
             snailjob-server) DEPLOY=ruoyi-snailjob-server ;;
           esac
-          kubectl rollout status deployment/$DEPLOY -n ruoyi --timeout=300s
+          kubectl rollout status deployment/$DEPLOY -n web --timeout=300s
 
       - name: Verify Status
         run: |
