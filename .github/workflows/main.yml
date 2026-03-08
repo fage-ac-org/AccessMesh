@@ -16,6 +16,7 @@ on:
           - job
           - workflow
           - monitor
+          - permission-center
           - snailjob-server
       environment:
         description: '部署环境'
@@ -65,6 +66,7 @@ jobs:
             job) echo "module=ruoyi-modules/ruoyi-job" >> $GITHUB_OUTPUT ;;
             workflow) echo "module=ruoyi-modules/ruoyi-workflow" >> $GITHUB_OUTPUT ;;
             monitor) echo "module=ruoyi-visual/ruoyi-monitor" >> $GITHUB_OUTPUT ;;
+            permission-center) echo "module=ruoyi-modules/ruoyi-permission-center" >> $GITHUB_OUTPUT ;;
             snailjob-server) echo "module=ruoyi-visual/ruoyi-snailjob-server" >> $GITHUB_OUTPUT ;;
           esac
 
@@ -141,6 +143,7 @@ jobs:
             job) DEPLOY=ruoyi-job ;;
             workflow) DEPLOY=ruoyi-workflow ;;
             monitor) DEPLOY=ruoyi-monitor ;;
+            permission-center) DEPLOY=ruoyi-permission-center ;;
             snailjob-server) DEPLOY=ruoyi-snailjob-server ;;
           esac
 
@@ -159,6 +162,7 @@ jobs:
             job) DEPLOY=ruoyi-job ;;
             workflow) DEPLOY=ruoyi-workflow ;;
             monitor) DEPLOY=ruoyi-monitor ;;
+            permission-center) DEPLOY=ruoyi-permission-center ;;
             snailjob-server) DEPLOY=ruoyi-snailjob-server ;;
           esac
           kubectl rollout status deployment/$DEPLOY -n ruoyi --timeout=300s
