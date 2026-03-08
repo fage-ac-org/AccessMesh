@@ -1,5 +1,5 @@
-# 贝尔实验室 Spring 官方推荐镜像 JDK下载地址 https://bell-sw.com/pages/downloads/
-FROM bellsoft/liberica-openjdk-rocky:17.0.16-cds
+# Zulu OpenJDK 17 JRE（Ubuntu 基础，glibc + libstdc++）
+FROM azul/zulu-openjdk:17-jre
 #FROM bellsoft/liberica-openjdk-rocky:21.0.8-cds
 #FROM findepi/graalvm:java17-native
 

@@ -3,8 +3,8 @@ FROM alpine:3.19 AS builder
 WORKDIR /build
 COPY target/ruoyi-permission-center.jar app.jar
 
-# ========== 阶段 2：最小运行时（JRE Alpine，体积远小于 JDK） ==========
-FROM eclipse-temurin:17-jre-alpine
+# ========== 阶段 2：Zulu OpenJDK 17 JRE（Ubuntu 基础，glibc + libstdc++） ==========
+FROM azul/zulu-openjdk:17-jre
 
 LABEL maintainer="Lion Li"
 LABEL org.opencontainers.image.title="ruoyi-permission-center" \
@@ -17,8 +17,8 @@ ENV LANG=C.UTF-8 \
 
 RUN set -eux; \
     mkdir -p /ruoyi/permission-center/logs /ruoyi/permission-center/temp /ruoyi/skywalking/agent; \
-    addgroup -g 1000 -S app; \
-    adduser -u 1000 -S -G app -D -h /ruoyi/permission-center -s /sbin/nologin app; \
+    groupadd -g 1000 app; \
+    useradd -u 1000 -g app -d /ruoyi/permission-center -s /sbin/nologin -M app; \
     chown -R app:app /ruoyi
 
 WORKDIR /ruoyi/permission-center

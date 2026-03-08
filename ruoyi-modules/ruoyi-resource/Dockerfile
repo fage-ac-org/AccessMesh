@@ -3,8 +3,8 @@ FROM alpine:3.19 AS builder
 WORKDIR /build
 COPY target/ruoyi-resource.jar app.jar
 
-# ========== 阶段 2：最小运行时（JRE Alpine，体积远小于 JDK） ==========
-FROM eclipse-temurin:17-jre-alpine
+# ========== 阶段 2：Zulu OpenJDK 17 JRE（Ubuntu 基础，glibc + libstdc++） ==========
+FROM azul/zulu-openjdk:17-jre
 
 LABEL maintainer="Lion Li"
 LABEL org.opencontainers.image.title="ruoyi-resource" \
@@ -17,8 +17,8 @@ ENV LANG=C.UTF-8 \
 
 RUN set -eux; \
     mkdir -p /ruoyi/resource/logs /ruoyi/resource/temp /ruoyi/skywalking/agent; \
-    addgroup -g 1000 -S app; \
-    adduser -u 1000 -S -G app -D -h /ruoyi/resource -s /sbin/nologin app; \
+    groupadd -g 1000 app; \
+    useradd -u 1000 -g app -d /ruoyi/resource -s /sbin/nologin -M app; \
     chown -R app:app /ruoyi
 
 WORKDIR /ruoyi/resource

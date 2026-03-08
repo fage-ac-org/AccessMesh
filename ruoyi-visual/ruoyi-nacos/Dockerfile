@@ -3,8 +3,8 @@ FROM alpine:3.19 AS builder
 WORKDIR /build
 COPY target/ruoyi-nacos.jar app.jar
 
-# ========== 阶段 2：最小运行时（JRE Alpine，体积远小于 JDK） ==========
-FROM bellsoft/liberica-openjdk-rocky:17.0.16-cds
+# ========== 阶段 2：Zulu OpenJDK 17 JRE（Ubuntu 基础，glibc + libstdc++） ==========
+FROM azul/zulu-openjdk:17-jre
 
 LABEL maintainer="Lion Li"
 LABEL org.opencontainers.image.title="ruoyi-nacos" \
