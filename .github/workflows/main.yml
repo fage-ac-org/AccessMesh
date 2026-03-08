@@ -16,6 +16,7 @@ on:
           - job
           - workflow
           - monitor
+          - nacos
           - permission-center
           - snailjob-server
       environment:
@@ -66,6 +67,7 @@ jobs:
             job) echo "module=ruoyi-modules/ruoyi-job" >> $GITHUB_OUTPUT ;;
             workflow) echo "module=ruoyi-modules/ruoyi-workflow" >> $GITHUB_OUTPUT ;;
             monitor) echo "module=ruoyi-visual/ruoyi-monitor" >> $GITHUB_OUTPUT ;;
+            nacos) echo "module=ruoyi-visual/ruoyi-nacos" >> $GITHUB_OUTPUT ;;
             permission-center) echo "module=ruoyi-modules/ruoyi-permission-center" >> $GITHUB_OUTPUT ;;
             snailjob-server) echo "module=ruoyi-visual/ruoyi-snailjob-server" >> $GITHUB_OUTPUT ;;
           esac
@@ -143,6 +145,7 @@ jobs:
             job) DEPLOY=ruoyi-job ;;
             workflow) DEPLOY=ruoyi-workflow ;;
             monitor) DEPLOY=ruoyi-monitor ;;
+            nacos) DEPLOY=ruoyi-nacos ;;
             permission-center) DEPLOY=ruoyi-permission-center ;;
             snailjob-server) DEPLOY=ruoyi-snailjob-server ;;
           esac
@@ -162,6 +165,7 @@ jobs:
             job) DEPLOY=ruoyi-job ;;
             workflow) DEPLOY=ruoyi-workflow ;;
             monitor) DEPLOY=ruoyi-monitor ;;
+            nacos) DEPLOY=ruoyi-nacos ;;
             permission-center) DEPLOY=ruoyi-permission-center ;;
             snailjob-server) DEPLOY=ruoyi-snailjob-server ;;
           esac
