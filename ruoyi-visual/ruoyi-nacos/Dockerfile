@@ -17,8 +17,8 @@ ENV TZ=Asia/Shanghai \
 
 RUN set -eux; \
     mkdir -p /ruoyi/nacos/logs /ruoyi/nacos/data /ruoyi/nacos/work; \
-    addgroup -g 1000 -S app; \
-    adduser -u 1000 -S -G app -D -h /ruoyi/nacos -s /sbin/nologin app; \
+    groupadd -g 1000 app; \
+    useradd -u 1000 -g app -d /ruoyi/nacos -s /sbin/nologin -M app; \
     chown -R app:app /ruoyi
 
 WORKDIR /ruoyi/nacos
