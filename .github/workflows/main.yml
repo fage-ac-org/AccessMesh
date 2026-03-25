@@ -10,15 +10,7 @@ on:
         options:
           - gateway
           - auth
-          - system
-          - resource
-          - gen
-          - job
-          - workflow
-          - monitor
-          - nacos
           - permission-center
-          - snailjob-server
       environment:
         description: '部署环境'
         required: false
@@ -61,20 +53,13 @@ jobs:
           case $SERVICE in
             gateway) echo "module=ruoyi-gateway" >> $GITHUB_OUTPUT ;;
             auth) echo "module=ruoyi-auth" >> $GITHUB_OUTPUT ;;
-            system) echo "module=ruoyi-modules/ruoyi-system" >> $GITHUB_OUTPUT ;;
-            resource) echo "module=ruoyi-modules/ruoyi-resource" >> $GITHUB_OUTPUT ;;
-            gen) echo "module=ruoyi-modules/ruoyi-gen" >> $GITHUB_OUTPUT ;;
-            job) echo "module=ruoyi-modules/ruoyi-job" >> $GITHUB_OUTPUT ;;
-            workflow) echo "module=ruoyi-modules/ruoyi-workflow" >> $GITHUB_OUTPUT ;;
-            monitor) echo "module=ruoyi-visual/ruoyi-monitor" >> $GITHUB_OUTPUT ;;
-            nacos) echo "module=ruoyi-visual/ruoyi-nacos" >> $GITHUB_OUTPUT ;;
             permission-center) echo "module=ruoyi-modules/ruoyi-permission-center" >> $GITHUB_OUTPUT ;;
-            snailjob-server) echo "module=ruoyi-visual/ruoyi-snailjob-server" >> $GITHUB_OUTPUT ;;
+            *) echo "unsupported service: $SERVICE" >&2; exit 1 ;;
           esac
 
       - name: Build All Modules
         run: |
-          mvn clean install -DskipTests -Dmaven.javadoc.skip=true -Dcheckstyle.skip=true
+          mvn -pl ${{ steps.paths.outputs.module }} -am clean package -DskipTests -Dmaven.javadoc.skip=true -Dcheckstyle.skip=true
 
       - name: Login to Docker Hub
         uses: docker/login-action@v3
@@ -139,19 +124,12 @@ jobs:
           case $SERVICE in
             gateway) DEPLOY=ruoyi-gateway ;;
             auth) DEPLOY=ruoyi-auth ;;
-            system) DEPLOY=ruoyi-system ;;
-            resource) DEPLOY=ruoyi-resource ;;
-            gen) DEPLOY=ruoyi-gen ;;
-            job) DEPLOY=ruoyi-job ;;
-            workflow) DEPLOY=ruoyi-workflow ;;
-            monitor) DEPLOY=ruoyi-monitor ;;
-            nacos) DEPLOY=ruoyi-nacos ;;
             permission-center) DEPLOY=ruoyi-permission-center ;;
-            snailjob-server) DEPLOY=ruoyi-snailjob-server ;;
+            *) echo "unsupported service: $SERVICE" >&2; exit 1 ;;
           esac
 
           echo "Deploying $DEPLOY with image $IMAGE:$TAG"
-          kubectl set image deployment/$DEPLOY $SERVICE=$IMAGE:$TAG -n web
+          kubectl set image deployment/$DEPLOY $SERVICE=$IMAGE:$TAG -n ruoyi
 
       - name: Wait for Rollout
         run: |
@@ -159,17 +137,10 @@ jobs:
           case $SERVICE in
             gateway) DEPLOY=ruoyi-gateway ;;
             auth) DEPLOY=ruoyi-auth ;;
-            system) DEPLOY=ruoyi-system ;;
-            resource) DEPLOY=ruoyi-resource ;;
-            gen) DEPLOY=ruoyi-gen ;;
-            job) DEPLOY=ruoyi-job ;;
-            workflow) DEPLOY=ruoyi-workflow ;;
-            monitor) DEPLOY=ruoyi-monitor ;;
-            nacos) DEPLOY=ruoyi-nacos ;;
             permission-center) DEPLOY=ruoyi-permission-center ;;
-            snailjob-server) DEPLOY=ruoyi-snailjob-server ;;
+            *) echo "unsupported service: $SERVICE" >&2; exit 1 ;;
           esac
-          kubectl rollout status deployment/$DEPLOY -n web --timeout=300s
+          kubectl rollout status deployment/$DEPLOY -n ruoyi --timeout=300s
 
       - name: Verify Status
         run: |

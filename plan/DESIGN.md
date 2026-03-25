@@ -12,6 +12,10 @@
 - **租户隔离**：所有表带 `tenant_id`，查询必须带租户条件。
 - **软删除**：统一使用 `deleted_at`，非 NULL 表示已删；唯一约束均带 `WHERE deleted_at IS NULL`。
 - **审计字段**：每表含 `created_by`、`updated_by`、`deleted_by`、`created_at`、`updated_at`、`deleted_at`。
+- **原表为事实层**：`abstract_user`、`abstract_role`、`user_role`、`resource_entity`、`operation_permission`、`role_resource_permission` 等原表是权限事实来源。
+- **kernel 为消费层**：`gateway`、`identity-service` 与其他运行时组件只消费 `permission-center` 对外暴露的查询/判定/版本接口，不再引入第二套主存储模型。
+- **接口映射显式建模**：接口资源与 HTTP 路由关系通过 `resource_api_mapping` 维护，不隐含在 `resource_entity.extra` 中。
+- **运行时版本独立维护**：权限变更后的快照刷新依据 `permission_version`，不直接依赖审计日志推导。
 
 ### 1.2 核心概念
 
@@ -22,8 +26,10 @@
 | 抽象角色 (abstract_role) | 对应角色/组织/团队/职位等，属于某 biz_domain 或全局；与权限直接关联。 |
 | 操作权限 (operation_permission) | 如 VIEW、EDIT、APPROVAL、AUDIT；用 binary_bit + inherit_mask 表示继承关系。 |
 | 权限资源实体 (resource_entity) | 权限作用对象（菜单、报表、数据集等），支持树形；属于某域或全局。 |
+| 接口资源映射 (resource_api_mapping) | 接口类资源到 `service_code + http_method + path_pattern` 的显式映射，供 gateway 匹配。 |
 | 用户-角色 (user_role) | 用户与角色多对多，可带 valid_from/valid_to。 |
 | 角色-资源-操作 (role_resource_permission) | 角色对某资源在某操作上的授权，可带 can_manage、condition_id。 |
+| 权限版本 (permission_version) | 运行时权限版本号，供 identity-service 写入令牌、gateway 刷新本地快照。 |
 
 ### 1.3 逻辑关系简图
 
@@ -37,8 +43,10 @@ biz_domain
 
 abstract_user --[user_role]--> abstract_role
 abstract_role --[role_resource_permission]--> resource_entity + operation_permission
+resource_entity --[resource_api_mapping]--> service_code + http_method + path_pattern
 resource_entity --[resource_dependency]--> resource_entity (依赖链，鉴权时展开)
 role_resource_permission 可带 condition_id --> permission_condition
+permission_version --> identity-service / gateway
 ```
 
 ---
@@ -53,6 +61,7 @@ role_resource_permission 可带 condition_id --> permission_condition
 | abstract_role | 抽象角色（树） | tenant_id, biz_domain_id, role_type, parent_id, path, name |
 | operation_permission | 操作权限 | tenant_id, biz_domain_id, code, binary_bit, inherit_mask |
 | resource_entity | 资源实体（树） | tenant_id, biz_domain_id, parent_id, code, name, resource_type, path |
+| resource_api_mapping | 接口资源映射 | tenant_id, biz_domain_id, resource_entity_id, service_code, http_method, path_pattern |
 | permission_condition | 生效条件（Java 表达式） | tenant_id, code, expression |
 | user_role | 用户-角色关联 | tenant_id, abstract_user_id, abstract_role_id, valid_from, valid_to |
 | role_resource_permission | 角色-资源-操作 | tenant_id, abstract_role_id, resource_entity_id, operation_permission_id, can_manage, condition_id |
@@ -61,6 +70,7 @@ role_resource_permission 可带 condition_id --> permission_condition
 | domain_scope_binding | 域引用全局角色/资源/操作 | tenant_id, biz_domain_id, bound_type, bound_entity_id |
 | resource_dependency | 资源依赖（鉴权时展开） | resource_entity_id, depends_on_resource_entity_id, source_operation_permission_id, required_operation_permission_id |
 | permission_conflict_rule | 同资源互斥操作对 | first_operation_permission_id, second_operation_permission_id, resource_type_value(可选) |
+| permission_version | 权限版本游标 | tenant_id, version_no, trigger_entity_type, trigger_entity_id |
 | permission_change_log | 变更记录 | entity_type, entity_id, operation, old_snapshot, new_snapshot, affected_abstract_user_ids, affected_abstract_role_ids |
 
 ---
@@ -69,6 +79,9 @@ role_resource_permission 可带 condition_id --> permission_condition
 
 - **system_config**：`config_key` 如 `user_type`、`role_type`、`resource_type`；`type_value` 为 INT，业务表存 type_value。
 - 显示名称与描述从 system_config 按 (config_key, type_value) 查询；biz_domain_id 可空表示租户全局类型。
+- `user_type` 首批至少覆盖 `USER`、`SERVICE`。
+- `resource_type` 首批至少覆盖 `MENU`、`BUTTON`、`API`、`DATA`。
+- 接口类资源建议使用 `ACCESS` 或 `INVOKE` 作为默认操作编码。
 - **domain_scope_config.scope_type**：`ROLE_TYPE` | `RESOURCE_TYPE` | `OPERATION`。
 - **domain_relation_config.relation_type**：`ROLE_RESOURCE` | `RESOURCE_OPERATION`。
 - **domain_scope_binding.bound_type**：`ROLE` | `RESOURCE` | `OPERATION`。
@@ -77,7 +90,7 @@ role_resource_permission 可带 condition_id --> permission_condition
 
 ---
 
-## 4. 鉴权流程（Java 实现要点）
+## 4. 鉴权流程与接口级消费（Java 实现要点）
 
 ### 4.1 入参与出口
 
@@ -100,6 +113,28 @@ role_resource_permission 可带 condition_id --> permission_condition
 - **缓存**：key = (tenant_id, abstract_user_id, biz_domain_id)，value = Set of (resource_entity_id, operation_permission_id)。user_role 或 role_resource_permission 变更时按 user/role 失效；TTL 1～5 分钟。
 - **resource_dependency**：表数据量通常不大，可启动时或按需加载到内存/本地缓存，鉴权时在内存递归。
 - **列表接口**：仅返回“用户拥有的 (resource, op)”时不做依赖展开；依赖仅在单次 check(user, resource, op) 时使用。
+- **接口快照缓存**：`gateway` 本地缓存建议按 `(tenant_id, abstract_user_id, permission_version)` 组织，避免不同版本混用。
+
+### 4.4 gateway 接口级权限包装流程
+
+1. `gateway` 从令牌中拿到 `tenant_id`、`abstract_user_id`、`permissionVersion`。
+2. 若本地无快照或令牌中的 `permissionVersion` 落后于 `permission-center` 当前版本，则调用接口快照查询接口。
+3. `permission-center` 从 `user_role`、`role_resource_permission`、`resource_entity`、`operation_permission` 组装可访问接口资源集合。
+4. 对接口类资源，再结合 `resource_api_mapping` 输出 `service_code + http_method + path_pattern + operation_code` 快照。
+5. `gateway` 完成路由匹配并决定放行/拒绝。
+
+当前最小实现约定：
+
+- `InterfacePermissionSnapshotRequest.principalContext.subjectId` 当前按 `abstract_user_id` 解释；`identity-service` 后续在 Phase 6.3 统一完成登录主体到 `abstract_user` 的映射。
+- `permission-center` 当前通过一条真实查询链组装接口快照：`user_role -> abstract_role -> role_resource_permission -> resource_entity -> operation_permission -> resource_api_mapping`。
+- `InterfacePermissionRule.capabilityCode` 当前按 `resource_code + ":" + operation_code` 生成，供网关决策结果回传命中能力。
+
+### 4.5 第一批实现边界
+
+- `permission_condition.expression` 首批不实现通用表达式引擎，只保留字段、基础校验与扩展点。
+- 接口快照首批仅纳入 `condition_id IS NULL` 的授权项；带条件授权暂不直接下发到 `gateway` 快照。
+- `permission_version` 首批按租户维度维护；后续若需要更细粒度再扩展到用户或主体维度。
+- `gateway` 只做接口级权限拦截，不做业务 SQL 级数据裁剪。
 
 ---
 
@@ -180,6 +215,9 @@ role_resource_permission 可带 condition_id --> permission_condition
 | 冲突规则 | GET/POST/DELETE /api/perm/conflict-rules | 列表/新增/删除。 |
 | 冲突检测 | POST /api/perm/conflict-detection | 返回违规用户/资源/操作列表。 |
 | 变更记录 | GET /api/perm/change-logs | 支持按 user_id、role_id、biz_domain_id、时间、entity_type、request_id 过滤。 |
+| 接口快照 | POST /api/perm/policy/interface-snapshot | 返回 gateway 可直接消费的接口资源快照。 |
+| 接口判定 | POST /api/perm/decision/interface | 按 `service_code + http_method + path` 做单次接口判定。 |
+| 版本查询 | POST /api/perm/version/query | 查询当前租户权限版本，供 identity-service 与 gateway 使用。 |
 
 ---
 

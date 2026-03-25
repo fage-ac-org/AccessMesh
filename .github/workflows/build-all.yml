@@ -13,15 +13,7 @@ env:
   SERVICES: |
     gateway ruoyi-gateway
     auth ruoyi-auth
-    system ruoyi-modules/ruoyi-system
-    resource ruoyi-modules/ruoyi-resource
-    gen ruoyi-modules/ruoyi-gen
-    job ruoyi-modules/ruoyi-job
-    workflow ruoyi-modules/ruoyi-workflow
-    monitor ruoyi-visual/ruoyi-monitor
-    nacos ruoyi-visual/ruoyi-nacos
     permission-center ruoyi-modules/ruoyi-permission-center
-    snailjob-server ruoyi-visual/ruoyi-snailjob-server
 
 jobs:
   build-all:
@@ -45,7 +37,7 @@ jobs:
 
       - name: Build All Modules
         run: |
-          mvn clean install -DskipTests -Dmaven.javadoc.skip=true -Dcheckstyle.skip=true
+          mvn -pl ruoyi-gateway,ruoyi-auth,ruoyi-modules/ruoyi-permission-center -am clean install -DskipTests -Dmaven.javadoc.skip=true -Dcheckstyle.skip=true
 
       - name: Login to Docker Hub
         if: inputs.push == true
@@ -82,7 +74,7 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 镜像列表" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
-          for name in gateway auth system resource gen job workflow monitor nacos permission-center snailjob-server; do
+          for name in gateway auth permission-center; do
             echo "docker.io/${USER}/ruoyi-${name}:${TAG}" >> $GITHUB_STEP_SUMMARY
           done
           echo '```' >> $GITHUB_STEP_SUMMARY

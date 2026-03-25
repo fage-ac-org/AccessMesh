@@ -20,6 +20,13 @@
 
     <dependencyManagement>
         <dependencies>
+            <!-- 认证与授权接口 -->
+            <dependency>
+                <groupId>org.dromara</groupId>
+                <artifactId>ruoyi-api-auth</artifactId>
+                <version>${revision}</version>
+            </dependency>
+
             <!-- 系统接口 -->
             <dependency>
                 <groupId>org.dromara</groupId>

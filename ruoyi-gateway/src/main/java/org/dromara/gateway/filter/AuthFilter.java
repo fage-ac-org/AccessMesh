@@ -12,7 +12,10 @@ import org.dromara.common.core.constant.HttpStatus;
 import org.dromara.common.core.utils.SpringUtils;
 import org.dromara.common.core.utils.StringUtils;
 import org.dromara.common.satoken.utils.LoginHelper;
+import org.dromara.gateway.authz.GatewayPermissionAuthorizer;
+import org.dromara.gateway.authz.GatewayPermissionDeniedException;
 import org.dromara.gateway.config.properties.IgnoreWhiteProperties;
+import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.server.reactive.ServerHttpRequest;
@@ -23,8 +26,11 @@ import org.springframework.http.server.reactive.ServerHttpResponse;
  *
  * @author Lion Li
  */
+@RequiredArgsConstructor
 @Configuration
 public class AuthFilter {
+
+    private final GatewayPermissionAuthorizer gatewayPermissionAuthorizer;
 
     /**
      * 注册 Sa-Token 全局过滤器
@@ -34,7 +40,7 @@ public class AuthFilter {
         return new SaReactorFilter()
             // 拦截地址
             .addInclude("/**")
-            .addExclude("/favicon.ico", "/actuator", "/actuator/**", "/resource/sse")
+            .addExclude("/favicon.ico", "/actuator", "/actuator/**")
             // 鉴权方法：每次访问进入
             .setAuth(obj -> {
                 // 登录校验 -- 拦截所有路由
@@ -56,6 +62,8 @@ public class AuthFilter {
                                 StpUtil.getTokenValue());
                         }
 
+                        gatewayPermissionAuthorizer.authorize(request);
+
                         // 有效率影响 用于临时测试
                         // if (log.isDebugEnabled()) {
                         //     log.debug("剩余有效时间: {}", StpUtil.getTokenTimeout());
@@ -65,6 +73,9 @@ public class AuthFilter {
             }).setError(e -> {
                 ServerHttpResponse response = SaReactorSyncHolder.getExchange().getResponse();
                 response.getHeaders().set(SaTokenConsts.CONTENT_TYPE_KEY, SaTokenConsts.CONTENT_TYPE_APPLICATION_JSON);
+                if (e instanceof GatewayPermissionDeniedException) {
+                    return SaResult.error(e.getMessage()).setCode(HttpStatus.FORBIDDEN);
+                }
                 if (e instanceof NotLoginException) {
                     return SaResult.error(e.getMessage()).setCode(HttpStatus.UNAUTHORIZED);
                 }

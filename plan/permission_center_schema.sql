@@ -1,5 +1,6 @@
 -- =============================================================================
 -- 通用权限中心 - PostgreSQL 表结构（无外键，逻辑关联由应用保证）
+-- 原权限主表为事实层，resource_api_mapping / permission_version 为接口权限运行时补充对象
 -- 执行顺序按依赖关系，建议按序号依次执行
 -- =============================================================================
 
@@ -246,6 +247,52 @@ COMMENT ON COLUMN resource_entity.created_at IS '创建时间';
 COMMENT ON COLUMN resource_entity.updated_at IS '更新时间';
 COMMENT ON COLUMN resource_entity.deleted_at IS '软删时间';
 COMMENT ON COLUMN resource_entity.delete_flag IS '逻辑删除：0=未删除，删除时填本行id';
+
+-- -----------------------------------------------------------------------------
+-- 5.1 接口资源映射表
+-- -----------------------------------------------------------------------------
+CREATE TABLE resource_api_mapping (
+    id                 BIGSERIAL PRIMARY KEY,
+    tenant_id          BIGINT NOT NULL,
+    biz_domain_id      BIGINT,
+    resource_entity_id BIGINT NOT NULL,
+    service_code       VARCHAR(128) NOT NULL,
+    http_method        VARCHAR(16) NOT NULL,
+    path_pattern       VARCHAR(512) NOT NULL,
+    match_order        INT NOT NULL DEFAULT 0,
+    enabled            BOOLEAN NOT NULL DEFAULT true,
+    extra              JSONB DEFAULT '{}',
+    created_by         BIGINT,
+    updated_by         BIGINT,
+    deleted_by         BIGINT,
+    created_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
+    deleted_at         TIMESTAMPTZ,
+    delete_flag        BIGINT NOT NULL DEFAULT 0
+);
+
+CREATE UNIQUE INDEX uk_resource_api_mapping_route ON resource_api_mapping (tenant_id, resource_entity_id, service_code, http_method, path_pattern) WHERE delete_flag = 0;
+CREATE INDEX idx_resource_api_mapping_lookup ON resource_api_mapping (tenant_id, service_code, http_method, match_order) WHERE delete_flag = 0 AND enabled = true;
+CREATE INDEX idx_resource_api_mapping_resource ON resource_api_mapping (resource_entity_id) WHERE delete_flag = 0;
+
+COMMENT ON TABLE resource_api_mapping IS '接口资源映射：把 API 类资源显式映射到 service_code + http_method + path_pattern';
+COMMENT ON COLUMN resource_api_mapping.id IS '主键';
+COMMENT ON COLUMN resource_api_mapping.tenant_id IS '租户ID';
+COMMENT ON COLUMN resource_api_mapping.biz_domain_id IS '所属业务域ID，NULL 表示全局映射';
+COMMENT ON COLUMN resource_api_mapping.resource_entity_id IS '关联的资源实体ID，通常为 API 类型资源';
+COMMENT ON COLUMN resource_api_mapping.service_code IS '所属服务编码，如 gateway routeId 或业务服务标识';
+COMMENT ON COLUMN resource_api_mapping.http_method IS 'HTTP 方法，如 GET/POST/PUT/DELETE';
+COMMENT ON COLUMN resource_api_mapping.path_pattern IS '接口路径模式，如 /api/users/**';
+COMMENT ON COLUMN resource_api_mapping.match_order IS '匹配优先级，数值越小越优先';
+COMMENT ON COLUMN resource_api_mapping.enabled IS '是否启用';
+COMMENT ON COLUMN resource_api_mapping.extra IS '扩展属性(JSON)';
+COMMENT ON COLUMN resource_api_mapping.created_by IS '创建人ID';
+COMMENT ON COLUMN resource_api_mapping.updated_by IS '更新人ID';
+COMMENT ON COLUMN resource_api_mapping.deleted_by IS '删除人ID';
+COMMENT ON COLUMN resource_api_mapping.created_at IS '创建时间';
+COMMENT ON COLUMN resource_api_mapping.updated_at IS '更新时间';
+COMMENT ON COLUMN resource_api_mapping.deleted_at IS '软删时间';
+COMMENT ON COLUMN resource_api_mapping.delete_flag IS '逻辑删除：0=未删除，删除时填本行id';
 
 -- -----------------------------------------------------------------------------
 -- 6. 权限生效条件表（Java 表达式）
@@ -541,6 +588,43 @@ COMMENT ON COLUMN permission_conflict_rule.created_at IS '创建时间';
 COMMENT ON COLUMN permission_conflict_rule.updated_at IS '更新时间';
 COMMENT ON COLUMN permission_conflict_rule.deleted_at IS '软删时间';
 COMMENT ON COLUMN permission_conflict_rule.delete_flag IS '逻辑删除：0=未删除，删除时填本行id';
+
+-- -----------------------------------------------------------------------------
+-- 9.6 权限版本表
+-- -----------------------------------------------------------------------------
+CREATE TABLE permission_version (
+    id                  BIGSERIAL PRIMARY KEY,
+    tenant_id           BIGINT NOT NULL,
+    version_no          BIGINT NOT NULL,
+    trigger_entity_type VARCHAR(64),
+    trigger_entity_id   BIGINT,
+    remark              VARCHAR(512),
+    created_by          BIGINT,
+    updated_by          BIGINT,
+    deleted_by          BIGINT,
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    deleted_at          TIMESTAMPTZ,
+    delete_flag         BIGINT NOT NULL DEFAULT 0
+);
+
+CREATE UNIQUE INDEX uk_permission_version_tenant_version ON permission_version (tenant_id, version_no) WHERE delete_flag = 0;
+CREATE INDEX idx_permission_version_tenant_latest ON permission_version (tenant_id, created_at DESC) WHERE delete_flag = 0;
+
+COMMENT ON TABLE permission_version IS '权限版本游标：权限发生变化时递增，供 identity-service 与 gateway 刷新运行时快照';
+COMMENT ON COLUMN permission_version.id IS '主键';
+COMMENT ON COLUMN permission_version.tenant_id IS '租户ID';
+COMMENT ON COLUMN permission_version.version_no IS '权限版本号，按租户递增';
+COMMENT ON COLUMN permission_version.trigger_entity_type IS '触发版本变更的实体类型，如 user_role/role_resource_permission';
+COMMENT ON COLUMN permission_version.trigger_entity_id IS '触发版本变更的实体ID';
+COMMENT ON COLUMN permission_version.remark IS '版本变更说明';
+COMMENT ON COLUMN permission_version.created_by IS '创建人ID';
+COMMENT ON COLUMN permission_version.updated_by IS '更新人ID';
+COMMENT ON COLUMN permission_version.deleted_by IS '删除人ID';
+COMMENT ON COLUMN permission_version.created_at IS '创建时间';
+COMMENT ON COLUMN permission_version.updated_at IS '更新时间';
+COMMENT ON COLUMN permission_version.deleted_at IS '软删时间';
+COMMENT ON COLUMN permission_version.delete_flag IS '逻辑删除：0=未删除，删除时填本行id';
 
 -- -----------------------------------------------------------------------------
 -- 10. 变更记录表

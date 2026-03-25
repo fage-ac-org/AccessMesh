@@ -9,12 +9,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <modules>
-        <module>ruoyi-system</module>
         <module>ruoyi-permission-center</module>
-        <module>ruoyi-gen</module>
-        <module>ruoyi-job</module>
-        <module>ruoyi-resource</module>
-        <module>ruoyi-workflow</module>
     </modules>
 
     <artifactId>ruoyi-modules</artifactId>
